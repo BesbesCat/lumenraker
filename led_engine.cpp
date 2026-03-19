@@ -32,6 +32,7 @@ void ledsInit() {
         else if (p == 15) FastLED.addLeds<WS2812, 15, GRB>(leds[i], c);
     }
     FastLED.setBrightness(config.brightness);
+    FastLED.setDither(BINARY_DITHER);
     initLua();
 }
 void dumpZoneData(int id, CRGB* leds, int count) {

@@ -249,7 +249,6 @@ void webuiInit() {
     },
     NULL,
     [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-        
         Serial.println("[WebUI] Started writing");
         if (index == 0) {
             if(!request->hasParam("name")) return;

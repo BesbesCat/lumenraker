@@ -3,7 +3,6 @@ local speed = config.speed or 128
 local delay_val = config.delay or 128
 local br = (config.brightness or 255) / 255.0
 
--- Invert speed so a higher value means a faster flash (smaller period)
 local period = 255 - speed
 if period < 10 then period = 10 end 
 

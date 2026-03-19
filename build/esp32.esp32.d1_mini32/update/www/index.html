@@ -326,7 +326,8 @@
         // 1. Send the save request
         // We don't "await" the result strictly because the ESP will likely reboot 
         // and kill the connection before sending a 200 OK.
-        fetch(`/api/save_script?name=${name}`, { method: 'POST', body: code }).catch(() => {
+        const blob = new Blob([code], { type: 'text/plain' });
+        fetch(`/api/save_script?name=${name}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: blob }).catch(() => {
             /* Expected: Connection lost due to reboot */
         });
 
