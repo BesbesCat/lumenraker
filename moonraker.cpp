@@ -114,8 +114,8 @@ void netTask(void* pv) {
   }
 
   if (!wifiConnected) {
-    Serial.println("\nWiFi Failed. Starting AP: KlipperLED_Setup");
-    WiFi.softAP("KoLED_Setup"); 
+    Serial.println("\nWiFi Failed. Starting AP: LUMENRAKER_SETUP");
+    WiFi.softAP("LUMENRAKER_SETUP"); 
     Serial.print("AP IP: "); Serial.println(WiFi.softAPIP());
   }
 

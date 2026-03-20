@@ -5,7 +5,7 @@ import json
 import tarfile
 
 VERSION = "0.0.2-alpha"
-PARTITION_SCHEME = "default" 
+PARTITION_SCHEME = "arduino_ide_current" 
 
 BUILD_DIR = os.path.join("build", "esp32.esp32.d1_mini32")
 UPDATE_DIR = os.path.join(BUILD_DIR, "update")
@@ -14,6 +14,7 @@ DOCS_DIR = "docs"
 FW_DIR = os.path.join(DOCS_DIR, "firmware")
 
 OFFSETS = {
+    "arduino_ide_current": 3997696,
     "default": 2686976,   
     "huge_app": 3211264,  
     "minimal": 4063232,   
