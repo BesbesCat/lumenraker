@@ -5,7 +5,7 @@
 #define MAX_ZONES 8
 #define MAX_LEDS 256
 
-const String LUMEN_VERSION = "0.0.1-alpha";
+const String LUMEN_VERSION = "0.0.2-alpha";
 
 enum EventType { EVT_IDLE, EVT_PRINTING, EVT_HEATING, EVT_HOMING, EVT_ERROR, EVT_SHUTDOWN, EVT_COUNT };
 extern const char* const EventNames[];
@@ -17,6 +17,8 @@ struct EffectConfig {
   uint8_t size;    // 0-255
   uint8_t brightness; // 0-255
 };
+
+static const EffectConfig* current_lua_config = nullptr;
 
 struct Strip { int gpio; int count; };
 struct Zone {

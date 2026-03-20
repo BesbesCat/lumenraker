@@ -15,7 +15,6 @@ extern uint16_t currentCount;
 lua_State* L_VM = nullptr;
 extern String lastLuaDebug = "N?A";
 
-// --- LUA HOOKS ---
 int l_get_count(lua_State* L) {
     lua_pushinteger(L, currentLeds ? currentCount : 0);
     return 1;
@@ -123,19 +122,51 @@ void update_lua_config(EffectConfig &cfg) {
     lua_pop(L_VM, 1);
 }
 
-bool executeLuaSafe(const char* scriptPath, int i) {
-    if (luaL_loadstring(L_VM, scriptPath) != LUA_OK) {
-        Serial.printf("[LUA] Load Error: %s\n", lua_tostring(L_VM, -1));
-        lua_pop(L_VM, 1);
-        return false;
+int l_config_index(lua_State* L) {
+    if (!current_lua_config) {
+        lua_pushnil(L);
+        return 1;
     }
-    lua_pushinteger(L_VM, i);
-    lua_setglobal(L_VM, "id");
 
-    lua_pushinteger(L_VM, (i % 2 == 0) ? 2 : 1);
+    const char* key = lua_tostring(L, 2); 
+    if (!key) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    if (key[0] == 'r' && key[1] == '\0') {
+        lua_pushinteger(L, current_lua_config->r);
+    } else if (key[0] == 'g' && key[1] == '\0') {
+        lua_pushinteger(L, current_lua_config->g);
+    } else if (key[0] == 'b' && key[1] == '\0') {
+        lua_pushinteger(L, current_lua_config->b);
+    } else if (strcmp(key, "speed") == 0) {
+        lua_pushinteger(L, current_lua_config->speed);
+    } else if (strcmp(key, "size") == 0) {
+        lua_pushinteger(L, current_lua_config->size);
+    } else if (strcmp(key, "delay") == 0) {
+        lua_pushinteger(L, current_lua_config->delay);
+    } else if (strcmp(key, "brightness") == 0) {
+        lua_pushinteger(L, current_lua_config->brightness);
+    } else {
+        lua_pushnil(L); 
+    }
+
+    return 1;
+}
+
+bool executeLuaFast(int scriptRef, int zoneIndex) {
+    if (!L_VM) return false;
+
+    lua_rawgeti(L_VM, LUA_REGISTRYINDEX, scriptRef);
+
+    lua_pushinteger(L_VM, zoneIndex);
+    lua_setglobal(L_VM, "id");
+    lua_pushinteger(L_VM, (zoneIndex % 2 == 0) ? 2 : 1);
     lua_setglobal(L_VM, "axis");
+
     if (lua_pcall(L_VM, 0, 0, 0) != LUA_OK) {
-        Serial.printf("[LUA] Exec Error (Zone %d): %s\n", i, lua_tostring(L_VM, -1));
+        Serial.printf("[LUA] Exec Error (Zone %d): %s\n", zoneIndex, lua_tostring(L_VM, -1));
         lua_pop(L_VM, 1);
         return false;
     }
@@ -157,6 +188,14 @@ void initLua() {
     lua_setglobal(L_VM, "led");
     lua_newtable(L_VM);
 
+    lua_newtable(L_VM);
+
+    lua_newtable(L_VM);
+    lua_pushcfunction(L_VM, l_config_index);
+    lua_setfield(L_VM, -2, "__index");
+    
+    lua_setmetatable(L_VM, -2);
+    
     lua_setglobal(L_VM, "config");
 
     lua_newtable(L_VM);

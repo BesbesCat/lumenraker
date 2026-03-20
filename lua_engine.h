@@ -9,7 +9,7 @@ extern lua_State* L_VM;
 
 void initLua();
 void update_lua_config(EffectConfig &cfg);
-bool executeLuaSafe(const char* path, int i);
+bool executeLuaFast(int scriptRef, int zoneIndex);
 
 extern CRGB* currentLeds;
 extern uint16_t currentCount;
