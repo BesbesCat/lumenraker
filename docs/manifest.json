@@ -1,0 +1,28 @@
+{
+  "name": "Lumenraker",
+  "version": "0.0.2-alpha",
+  "home_assistant_domain": "lumenraker",
+  "builds": [
+    {
+      "chipFamily": "ESP32",
+      "parts": [
+        {
+          "path": "firmware/bootloader.bin",
+          "offset": 4096
+        },
+        {
+          "path": "firmware/partitions.bin",
+          "offset": 32768
+        },
+        {
+          "path": "firmware/firmware.bin",
+          "offset": 65536
+        },
+        {
+          "path": "firmware/littlefs.bin",
+          "offset": 2686976
+        }
+      ]
+    }
+  ]
+}

@@ -21,28 +21,31 @@ int l_get_count(lua_State* L) {
 }
 
 int l_clear(lua_State* L) {
-    if (!currentLeds || currentCount == 0)
-        return 0;
-
+    if (!currentLeds || currentCount == 0) return 0;
     for (int i = 0; i < currentCount; i++) {
-        currentLeds[i] = CRGB::Black;
+        currentLeds[i] = CRGB(0, 0, 0);
     }
     return 0;
 }
-int l_set_hsv(lua_State* L) {
 
+int l_set_hsv(lua_State* L) {
     if (!currentLeds) return 0;
 
     int i = luaL_checkinteger(L, 1);
+    
+    float h = luaL_checkinteger(L, 2) / 255.0f;
+    float s = luaL_checkinteger(L, 3) / 255.0f;
+    float v = luaL_checkinteger(L, 4) / 255.0f;
+
     if (currentReversed) {
         i = (currentCount - 1) - i;
     }
+    
     if (i >= 0 && i < currentCount) {
-        currentLeds[i] = CHSV(
-            luaL_checkinteger(L, 2),
-            luaL_checkinteger(L, 3),
-            luaL_checkinteger(L, 4)
-        );
+        HsbColor hsb(h, s, v);
+        RgbColor rgb(hsb);
+        
+        currentLeds[i] = CRGB(rgb.R, rgb.G, rgb.B);
     }
     return 0;
 }

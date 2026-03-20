@@ -1,7 +1,29 @@
-#include <FastLED.h>
+#include <NeoPixelBus.h>
 #include <LittleFS.h>
 #include "config.h"
 #include "lua_engine.h"
+
+class StripWrapper {
+public:
+    virtual ~StripWrapper() {};
+    virtual void Begin() = 0;
+    virtual void Show() = 0;
+    virtual bool CanShow() = 0;
+    virtual void SetPixelColor(uint16_t indexPixel, RgbColor color) = 0;
+};
+
+template<typename T_METHOD>
+class StripImpl : public StripWrapper {
+    NeoPixelBus<NeoGrbFeature, T_METHOD> strip;
+public:
+    StripImpl(uint16_t count, uint8_t pin) : strip(count, pin) {}
+    void Begin() override { strip.Begin(); }
+    void Show() override { strip.Show(); }
+    bool CanShow() override { return strip.CanShow(); }
+    void SetPixelColor(uint16_t indexPixel, RgbColor color) override { strip.SetPixelColor(indexPixel, color); }
+};
+
+StripWrapper* hwStrips[MAX_STRIPS] = {nullptr};
 
 CRGB leds[MAX_STRIPS][MAX_LEDS];
 
@@ -15,29 +37,39 @@ float targetTemp = 0;
 
 int cachedScriptRef[MAX_ZONES] = {LUA_NOREF}; 
 char cachedPath[MAX_ZONES][64] = {0};
-TickType_t xLastWakeTime;
-const TickType_t xFrequency = pdMS_TO_TICKS(8);
 
 bool currentReversed = false;
+const EffectConfig* current_lua_config = nullptr;
+int currentFPS = 0;
 
 void ledsInit() {
-    FastLED.clear();
     for (int i = 0; i < config.stripCount; i++) {
         int p = config.strips[i].gpio;
         int c = config.strips[i].count;
         
-        if (p == 2)  FastLED.addLeds<WS2812, 2, GRB>(leds[i], c);
-        else if (p == 4)  FastLED.addLeds<WS2812, 4, GRB>(leds[i], c);
-        else if (p == 5)  FastLED.addLeds<WS2812, 5, GRB>(leds[i], c);
-        else if (p == 12) FastLED.addLeds<WS2812, 12, GRB>(leds[i], c);
-        else if (p == 13) FastLED.addLeds<WS2812, 13, GRB>(leds[i], c);
-        else if (p == 14) FastLED.addLeds<WS2812, 14, GRB>(leds[i], c);
-        else if (p == 15) FastLED.addLeds<WS2812, 15, GRB>(leds[i], c);
+        if (hwStrips[i]) { delete hwStrips[i]; hwStrips[i] = nullptr; }
+
+        switch (i) {
+            case 0: hwStrips[i] = new StripImpl<NeoEsp32I2s0800KbpsMethod>(c, p); break;
+            case 1: hwStrips[i] = new StripImpl<NeoEsp32I2s1800KbpsMethod>(c, p); break;
+            case 2: hwStrips[i] = new StripImpl<NeoEsp32Rmt0800KbpsMethod>(c, p); break;
+            case 3: hwStrips[i] = new StripImpl<NeoEsp32Rmt1800KbpsMethod>(c, p); break;
+            case 4: hwStrips[i] = new StripImpl<NeoEsp32Rmt2800KbpsMethod>(c, p); break;
+            case 5: hwStrips[i] = new StripImpl<NeoEsp32Rmt3800KbpsMethod>(c, p); break;
+            case 6: hwStrips[i] = new StripImpl<NeoEsp32Rmt4800KbpsMethod>(c, p); break;
+            case 7: hwStrips[i] = new StripImpl<NeoEsp32Rmt5800KbpsMethod>(c, p); break;
+            case 8: hwStrips[i] = new StripImpl<NeoEsp32Rmt6800KbpsMethod>(c, p); break;
+            case 9: hwStrips[i] = new StripImpl<NeoEsp32Rmt7800KbpsMethod>(c, p); break;
+        }
+
+        if (hwStrips[i]) {
+            hwStrips[i]->Begin();
+            hwStrips[i]->Show();
+        }
     }
-    FastLED.setBrightness(config.brightness);
-    FastLED.setDither(BINARY_DITHER);
     initLua();
 }
+
 void dumpZoneData(int id, CRGB* leds, int count) {
     static uint32_t lastDump = 0;
     if (millis() - lastDump < 2000) return;
@@ -52,8 +84,8 @@ void dumpZoneData(int id, CRGB* leds, int count) {
     if (id == config.zoneCount - 1) lastDump = millis(); 
 }
 void ledTask(void* pv) {
-    xLastWakeTime = xTaskGetTickCount();
-
+    unsigned long lastFpsTime = millis();
+    int frameCount = 0;
     while(true) {
         bool showNeeded = false;
         
@@ -107,9 +139,40 @@ void ledTask(void* pv) {
         }
 
         if (showNeeded) {
-            FastLED.show();
-        }
+            for (int i = 0; i < config.stripCount; i++) {
+                if (hwStrips[i]) {
+                    while (!hwStrips[i]->CanShow()) {
+                        vTaskDelay(pdMS_TO_TICKS(1));
+                    }
+                }
+            }
 
-        vTaskDelayUntil(&xLastWakeTime, xFrequency); 
+            float masterBrightness = config.brightness / 255.0f;
+            
+            for (int i = 0; i < config.stripCount; i++) {
+                if (hwStrips[i]) {
+                    for (int j = 0; j < config.strips[i].count; j++) {
+                        RgbColor hwColor(
+                            leds[i][j].r * masterBrightness,
+                            leds[i][j].g * masterBrightness,
+                            leds[i][j].b * masterBrightness
+                        );
+                        hwStrips[i]->SetPixelColor(j, hwColor);
+                    }
+                    
+                    hwStrips[i]->Show();
+                    frameCount++;
+                }
+            }
+        }
+        unsigned long currentMillis = millis();
+        if (currentMillis - lastFpsTime >= 1000) {
+            currentFPS = frameCount;
+            frameCount = 0;
+            lastFpsTime = currentMillis;
+
+            // Serial.printf("[LED] FPS: %d\n", currentFPS); 
+        }
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 }

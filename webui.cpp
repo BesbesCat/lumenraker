@@ -297,6 +297,11 @@ void webuiInit() {
         request->send(200, "application/json", json);
     });
 
+    server.on("/api/fps", HTTP_GET, [](AsyncWebServerRequest *request) {
+        String json = "{\"fps\":" + String(currentFPS) + "}";
+        request->send(200, "application/json", json);
+    });
+
     server.serveStatic("/", LittleFS, "/www/").setDefaultFile("index.html");
 
     server.begin();

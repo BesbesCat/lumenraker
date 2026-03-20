@@ -2,7 +2,7 @@
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
-#include <FastLED.h>
+#include <NeoPixelBus.h>
 #include "config.h"
 
 extern lua_State* L_VM;

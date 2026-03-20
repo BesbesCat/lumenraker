@@ -124,6 +124,6 @@ void netTask(void* pv) {
 
   while(true) {
     if (wifiConnected) ws.loop();
-    vTaskDelay(pdMS_TO_TICKS(2)); 
+    vTaskDelay(pdMS_TO_TICKS(10)); 
   }
 }

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumenraker Web Installer</title>
+    <style>
+        body { font-family: sans-serif; background-color: #121212; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .container { text-align: center; background: #1e1e1e; padding: 40px; border-radius: 12px; }
+        h1 { color: #00bcd4; }
+        p { margin-bottom: 30px; color: #aaa; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Lumenraker Installer</h1>
+        <p>Connect ESP32 via USB and click install.</p>
+        <esp-web-install-button manifest="manifest.json"></esp-web-install-button>
+    </div>
+    <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 
-#define MAX_STRIPS 8
+#define MAX_STRIPS 10
 #define MAX_ZONES 8
 #define MAX_LEDS 256
 
@@ -18,7 +18,7 @@ struct EffectConfig {
   uint8_t brightness; // 0-255
 };
 
-static const EffectConfig* current_lua_config = nullptr;
+extern const EffectConfig* current_lua_config;
 
 struct Strip { int gpio; int count; };
 struct Zone {
@@ -38,3 +38,18 @@ extern Config config;
 void saveConfig();
 void loadConfig();
 void setupFS();
+
+struct CRGB {
+    union {
+        struct {
+            union { uint8_t r; uint8_t red; };
+            union { uint8_t g; uint8_t green; };
+            union { uint8_t b; uint8_t blue; };
+        };
+        uint8_t raw[3];
+    };
+    inline CRGB() __attribute__((always_inline)) : r(0), g(0), b(0) {}
+    inline CRGB( uint8_t ir, uint8_t ig, uint8_t ib)  __attribute__((always_inline)) : r(ir), g(ig), b(ib) {}
+};
+
+extern int currentFPS;
