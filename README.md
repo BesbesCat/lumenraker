@@ -47,6 +47,62 @@ Core 1: Dedicated entirely to the Lua Virtual Machine and calculating the LED fr
     
 
 ----------
+## Gemini said
+
+Here is the integrated, professional `README.md`. I have merged the technical specifications of the second version (Dual-Core architecture, Hardware DMA, and PlatformIO details) with the comprehensive functional documentation and Lua API of the first.
+
+----------
+
+# Lumenraker
+
+**A hyper-optimized, Lua-driven, dual-core LED effects engine for Klipper/Moonraker 3D printers.**
+
+Lumenraker is a custom ESP32 firmware designed to bring complex, hardware-accelerated LED lighting to 3D printers via Moonraker. By offloading heavy rendering to a dedicated ESP32 and executing effects via a lightweight Lua Virtual Machine, Lumenraker delivers buttery-smooth 60+ FPS animations with zero overhead on your printer's mainboard.
+
+----------
+
+## Architecture & Technical Optimizations
+
+Lumenraker is engineered for high-performance stability using a **Dual-Core FreeRTOS Architecture**:
+
+-   **Core 0 (System):** Dedicated strictly to Wi-Fi management, the Async Web Server, and real-time Moonraker WebSocket telemetry.
+    
+-   **Core 1 (Engine):** Dedicated entirely to the Lua Virtual Machine and calculating the LED frame buffer.
+    
+-   **True Hardware DMA:** Built on `NeoPixelBus`, the engine pushes data to up to 10 independent LED strips using the ESP32's **I2S and RMT** silicon. This ensures zero CPU bit-banging, zero disabled interrupts, and perfect Wi-Fi stability.
+    
+-   **Dynamic Pin Mapping:** Leverage the ESP32 GPIO Matrix to assign up to 10 distinct pins in the Web UI. The engine automatically routes the hardware DMA channels (I2S for strips 0-1, RMT for 2-9).
+    
+-   **In-Memory Configuration:** System updates are merged in RAM before being committed to flash to minimize wear and prevent file corruption.
+    
+
+----------
+
+## Features
+
+-   **Live Lua Effects Engine:** Write, upload, and test `.lua` scripts directly through the browser. No firmware recompilation is required to change lighting behavior.
+    
+-   **Moonraker Sync:** Listens to real-time telemetry (Print progress, Bed/Hotend temps, Toolhead position, Homing states) and passes them to the Lua engine.
+    
+-   **Multi-Strip & Multi-Zone:** Map physical strips into logical, overlapping "zones" directly from the dashboard.
+    
+-   **System Monitoring:** Integrated Web UI dashboard for live tracking of RAM, LittleFS storage, real-time FPS, and Wi-Fi signal strength (RSSI).
+    
+-   **OTA & Package Management:** Flash firmware or LittleFS files over-the-air. Export and import `.tar` bundles for easy configuration backups.
+    
+
+----------
+
+## Hardware Requirements
+
+-   **Microcontroller:** ESP32 (Tested on MH-ET LIVE D1 Mini). _Note: ESP8266 is not supported due to the lack of dual cores and RMT hardware._
+    
+-   **LEDs:** WS2812B (NeoPixels) or compatible 3-wire addressable strips.
+    
+-   **Level Shifter:** A 74AHCT125 (or similar) 3.3V to 5V logic level shifter is highly recommended for signal integrity.
+    
+-   **Recommended GPIOs:** 2, 4, 5, 12-19, 21-23, 25-27, 32, 33. (Avoid 34-39 as they are input-only).
+----------
 
 ## Installation
 
