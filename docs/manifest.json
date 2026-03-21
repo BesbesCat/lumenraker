@@ -20,7 +20,7 @@
         },
         {
           "path": "firmware/littlefs.bin",
-          "offset": 3997696
+          "offset": 3080192
         }
       ]
     }

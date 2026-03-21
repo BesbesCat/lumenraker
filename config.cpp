@@ -51,19 +51,16 @@ void defaultConfig() {
 void loadConfig() {
   prefs.begin("klpro", false);
   
-  // 1. Check for a magic version number (e.g., 101)
   uint32_t version = prefs.getUInt("cfgVer", 0);
 
   if(version != 101) { 
-    // This is a brand new chip or a major update!
     prefs.end();
     Serial.println("[Config] No valid config found. Loading Defaults...");
     defaultConfig();
-    saveConfig(); // Write the defaults (including version 101) immediately
+    saveConfig();
     return; 
   }
 
-  // 2. If version is correct, proceed with normal loading
   prefs.getBytes("wifiSSID", config.wifiSSID, 32);
   prefs.getBytes("wifiPASS", config.wifiPASS, 64);
   prefs.getBytes("mHost", config.moonrakerHost, 64);
@@ -77,7 +74,6 @@ void loadConfig() {
   
   prefs.end();
 
-  // 3. Final safety check for corruption
   if(config.stripCount == 0 || config.stripCount > MAX_STRIPS) {
     defaultConfig();
   }

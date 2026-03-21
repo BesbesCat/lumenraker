@@ -20,7 +20,6 @@ void handleGetConfig(AsyncWebServerRequest *request) {
     doc["mPort"] = config.moonrakerPort;
     doc["br"] = config.brightness;
 
-    // Serialize Strips
     JsonArray sArr = doc["strips"].to<JsonArray>();
     for(int i=0; i<config.stripCount; i++) {
         JsonObject s = sArr.add<JsonObject>();
@@ -28,7 +27,6 @@ void handleGetConfig(AsyncWebServerRequest *request) {
         s["cnt"] = config.strips[i].count;
     }
 
-    // Serialize Zones & Events
     JsonArray zArr = doc["zones"].to<JsonArray>();
     for(int i=0; i<config.zoneCount; i++) {
         JsonObject z = zArr.add<JsonObject>();
@@ -73,14 +71,12 @@ void handleSaveConfig(AsyncWebServerRequest *request, uint8_t *data, size_t len,
             config.moonrakerPort = doc["mPort"] | 7125;
             config.brightness = doc["br"] | 128;
 
-            // Save Strips
             config.stripCount = doc["strips"].size();
             for(int i=0; i<config.stripCount && i<MAX_STRIPS; i++) {
                 config.strips[i].gpio = doc["strips"][i]["pin"];
                 config.strips[i].count = doc["strips"][i]["cnt"];
             }
 
-            // Save Zones
             config.zoneCount = doc["zones"].size();
             for(int i=0; i<config.zoneCount && i<MAX_ZONES; i++) {
                 config.zones[i].strip = doc["zones"][i]["sIdx"];
@@ -89,7 +85,6 @@ void handleSaveConfig(AsyncWebServerRequest *request, uint8_t *data, size_t len,
                 config.zones[i].reversed = doc["zones"][i]["rev"] | false;
                 
                 for(int e=0; e<EVT_COUNT; e++) {
-                    // Copy the Lua script name into the struct
                     strlcpy(config.zones[i].events[e].scriptName, doc["zones"][i]["evts"][e]["fx"] | "Solid Color", sizeof(config.zones[i].events[e].scriptName));
                     config.zones[i].events[e].r = doc["zones"][i]["evts"][e]["r"] | 200;
                     config.zones[i].events[e].g = doc["zones"][i]["evts"][e]["g"] | 200;
@@ -108,7 +103,6 @@ void handleSaveConfig(AsyncWebServerRequest *request, uint8_t *data, size_t len,
         }
     }
 }
-
 
 void handleListScripts(AsyncWebServerRequest *request) {
     JsonDocument doc;
@@ -137,28 +131,6 @@ void handleReadScript(AsyncWebServerRequest *request) {
     String name = "/fx/" + request->getParam("name")->value() + ".lua";
     if(LittleFS.exists(name)) request->send(LittleFS, name, "text/plain");
     else request->send(404, "text/plain", "FileSystem Error");
-}
-
-void handleSaveScript(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-    AsyncWebParameter* p = request->getParam("name"); 
-    if(!p) {
-        request->send(500, "text/plain", "FileSystem Error");
-        return;
-    }
-    String filename = "/fx/" + p->value() + ".lua";
-    File file = LittleFS.open(filename, (index == 0) ? "w" : "a");
-    if(file) {
-        file.write(data, len);
-        file.close();
-        
-        if (index + len == total) {
-            request->send(200, "text/plain", "OK");
-        }
-        delay(1000); ESP.restart();
-    } else {
-        if (index == 0) request->send(500, "text/plain", "FileSystem Error");
-        if (index + len == total) request->send(500, "text/plain", "FileSystem Error");
-    }
 }
 
 void handleDeleteScript(AsyncWebServerRequest *request) {
@@ -229,12 +201,36 @@ void handleFirmwareOTA(AsyncWebServerRequest *request, uint8_t *data, size_t len
     }
 }
 
+void handleGetSysInfo(AsyncWebServerRequest *request) {
+    JsonDocument doc;
+
+    doc["heap_free"] = ESP.getFreeHeap();
+    doc["heap_total"] = ESP.getHeapSize();
+    doc["heap_min"] = ESP.getMinFreeHeap();
+    doc["heap_max_alloc"] = ESP.getMaxAllocHeap();
+
+    doc["fs_used"] = LittleFS.usedBytes();
+    doc["fs_total"] = LittleFS.totalBytes();
+
+    doc["uptime"] = millis() / 1000;
+    doc["cpu_freq"] = ESP.getCpuFreqMHz();
+    doc["chip_rev"] = ESP.getChipRevision();
+    doc["sdk_ver"] = ESP.getSdkVersion();
+
+    doc["wifi_rssi"] = WiFi.RSSI();
+
+    String response;
+    serializeJson(doc, response);
+    request->send(200, "application/json", response);
+}
+
 void webuiInit() {
     if(!LittleFS.begin(true)){
       Serial.println("LittleFS Mount Failed");
       return;
     }
 
+    server.on("/api/sysinfo", HTTP_GET, handleGetSysInfo);
     server.on("/api/config", HTTP_GET, handleGetConfig);
     server.on("/api/config", HTTP_POST, [](AsyncWebServerRequest *request){}, NULL, handleSaveConfig);
     server.on("/api/debug", HTTP_GET, [](AsyncWebServerRequest *request){

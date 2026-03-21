@@ -5,7 +5,7 @@
 #define MAX_ZONES 8
 #define MAX_LEDS 256
 
-const String LUMEN_VERSION = "0.0.2-alpha";
+const String LUMEN_VERSION = "0.0.3-alpha";
 
 enum EventType { EVT_IDLE, EVT_PRINTING, EVT_HEATING, EVT_HOMING, EVT_ERROR, EVT_SHUTDOWN, EVT_COUNT };
 extern const char* const EventNames[];

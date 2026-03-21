@@ -13,7 +13,7 @@ extern float targetTemp;
 extern CRGB* currentLeds;
 extern uint16_t currentCount;
 lua_State* L_VM = nullptr;
-extern String lastLuaDebug = "N?A";
+extern String lastLuaDebug = "";
 
 int l_get_count(lua_State* L) {
     lua_pushinteger(L, currentLeds ? currentCount : 0);

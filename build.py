@@ -67,7 +67,7 @@ def main():
 
     fw_src = os.path.join(BUILD_DIR, "lumenraker.ino.bin")
     if os.path.exists(fw_src):
-        shutil.copy2(fw_src, os.path.join(UPDATE_DIR, "lumenraker.ino.bin"))
+        shutil.copy2(fw_src, os.path.join(UPDATE_DIR, "firmware.bin"))
 
     tar_path = os.path.join(UPDATE_DIR, "update.tar")
     with tarfile.open(tar_path, "w") as tar:

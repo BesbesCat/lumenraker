@@ -134,7 +134,7 @@
             <h3>Network & Moonraker</h3>
             <div class="card-grid">
                 <div class="form-group"><label>WiFi SSID</label><input type="text" id="ssid"></div>
-                <div class="form-group"><label>WiFi Password</label><input type="password" id="pass"></div>
+                <div class="form-group"><label>WiFi Pass</label><input type="password" id="pass"></div>
                 <div class="form-group"><label>Printer IP</label><input type="text" id="mHost"></div>
                 <div class="form-group"><label>Port</label><input type="number" id="mPort"></div>
             </div>
@@ -238,23 +238,6 @@
             <button class="btn-save" onclick="handleLocalUpload()">Install Local Bundle</button>
             <div id="install-local-progress" style="margin-top:10px; font-family:monospace; font-size:0.8rem;"></div>
         </div>
-        <div class="card">
-            <h3>Export System Bundle</h3>
-            <p>Download a <b>.tar</b> bundle containing your system configuration and custom Lua effects.</p>
-            
-            <div style="display: flex; gap: 20px; margin-bottom: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px;">
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
-                    <input type="checkbox" id="export-config" checked style="width: 16px; height: 16px; accent-color: var(--accent);"> 
-                    Export config.json
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
-                    <input type="checkbox" id="export-effects" checked style="width: 16px; height: 16px; accent-color: var(--accent);"> 
-                    Export Lua Effects (/fx)
-                </label>
-            </div>
-            
-            <button class="btn-save" id="btn-export" onclick="exportBackup()" style="margin-top: 0;">Generate Bundle</button>
-        </div>
     </div>
 </div>
 <div id="reboot-modal" class="modal-overlay" style="display:none;">
@@ -274,49 +257,7 @@
     const MAX_HISTORY = 180;
     let debugInterval = null;
     let lastDebugMsg = "";
-    class TarBuilder {
-        constructor() { this.buffers = []; }
 
-        addFile(name, contentString) {
-            const encoder = new TextEncoder();
-            const content = encoder.encode(contentString);
-            const header = new Uint8Array(512);
-            let offset = 0;
-
-            const writeString = (str, len) => {
-                for (let i = 0; i < str.length && i < len; i++) header[offset + i] = str.charCodeAt(i);
-                offset += len;
-            };
-
-            writeString(name, 100);
-            writeString("0000644\0", 8);
-            writeString("0000000\0", 8);
-            writeString("0000000\0", 8);
-            writeString(content.length.toString(8).padStart(11, '0') + '\0', 12);
-            writeString(Math.floor(Date.now() / 1000).toString(8).padStart(11, '0') + '\0', 12);        
-            const chksumOffset = offset;
-            writeString("        ", 8);                     // checksum placeholder
-            writeString("0", 1);                            // typeflag (0 = regular file)
-            writeString("ustar\0", 6);                      // magic
-            writeString("00", 2);                           // version
-
-            let chksum = 0;
-            for (let i = 0; i < 512; i++) chksum += header[i];
-            const chksumStr = chksum.toString(8).padStart(6, '0') + '\0 ';
-            for (let i = 0; i < 8; i++) header[chksumOffset + i] = chksumStr.charCodeAt(i);
-
-            this.buffers.push(header);
-            this.buffers.push(content);
-        
-            const paddingLength = (512 - (content.length % 512)) % 512;
-            if (paddingLength > 0) this.buffers.push(new Uint8Array(paddingLength));
-        }
-
-        getBlob() {
-            this.buffers.push(new Uint8Array(1024)); 
-            return new Blob(this.buffers, { type: 'application/x-tar' });
-        }
-    }
     document.addEventListener('DOMContentLoaded', () => {
         editor = ace.edit("lua-editor");
         editor.setTheme("ace/theme/monokai");
@@ -330,72 +271,6 @@
             fontSize: "14px"
         });
     });
-
-    async function exportBackup() {
-        const exportConfig = document.getElementById('export-config').checked;
-        const exportEffects = document.getElementById('export-effects').checked;
-
-        if (!exportConfig && !exportEffects) {
-            showToast("Please select at least one item to export.", "error");
-            return;
-        }
-
-        const btn = document.getElementById('btn-export');
-        const originalText = btn.innerText;
-        btn.innerText = "Generating Bundle ...";
-        btn.disabled = true;
-
-        try {
-            const tar = new TarBuilder();
-
-            if (exportConfig) {
-                const res = await fetch('/api/config');
-                if (res.ok) {
-                    const configData = await res.text();
-                    tar.addFile('config.json', configData);
-                } else {
-                    showToast("Warning: Failed to read config data.", "error");
-                }
-            }
-
-            if (exportEffects) {
-                const res = await fetch('/api/scripts');
-                if (res.ok) {
-                    const scripts = await res.json();
-                    for (const scriptName of scripts) {
-                        const scriptRes = await fetch(`/api/read_script?name=${scriptName}`);
-                        if (scriptRes.ok) {
-                            const scriptContent = await scriptRes.text();
-                            tar.addFile(`fx/${scriptName}.lua`, scriptContent);
-                        }
-                    }
-                } else {
-                    showToast("Warning: Failed to fetch script list.", "error");
-                }
-            }
-
-            const blob = tar.getBlob();
-            const dateStr = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
-            const url = URL.createObjectURL(blob);
-        
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `backup_${dateStr}.tar`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-
-            showToast("Backup exported successfully!", "success");
-
-        } catch (e) {
-            console.error("Export failed:", e);
-            showToast("An error occurred during export.", "error");
-        } finally {
-            btn.innerText = originalText;
-            btn.disabled = false;
-        }
-    }
 
     async function updateSysStats() {
         try {
@@ -779,20 +654,14 @@
     }
 
     async function processInstaller(arrayBuffer) {
-        const status = document.getElementById('install-local-progress') || document.getElementById('install-progress');
+        const status = document.getElementById('install-local-progress');
 
         try {
             status.innerText = "Unpacking bundle...";
             const files = await untar(arrayBuffer);
-            
-            let extractedConfig = null;
 
             for (const file of files) {
-                if (file.name === 'config.json' || file.name === '/config.json') {
-                    const decoder = new TextDecoder();
-                    extractedConfig = decoder.decode(file.buffer);
-                    continue;                }
-
+                // Clean paths: remove 'update/' or 'www/' prefixes
                 status.innerText = `Installing: ${file.name}`;
             
                 let endpoint = "";
@@ -814,55 +683,20 @@
 
                 if (!response.ok) throw new Error(`Failed on ${file.name}`);
 
+                // Cooldown to prevent ESP32 crash
                 await sleep(500); 
             }
 
-            if (extractedConfig) {
-                status.innerText = "Processing configuration backup...";
-                try {
-                    const newConfig = JSON.parse(extractedConfig);
-                    
-                    let currentConfig = {};
-                    const configRes = await fetch('/api/config');
-                    if (configRes.ok) {
-                        currentConfig = await configRes.json();
-                    }
-
-                    const mergedConfig = JSON.parse(JSON.stringify(currentConfig));
-                    
-                    for (const key in newConfig) {
-                        mergedConfig[key] = newConfig[key];
-                    }
-
-                    status.innerText = "Uploading merged configuration...";
-                    
-                    await fetch('/api/config', { 
-                        method: 'POST', 
-                        headers: { 'Content-Type': 'application/json' }, 
-                        body: JSON.stringify(mergedConfig) 
-                    }).catch(() => {  });
-
-                    status.innerText = "Config applied. Waiting 6 seconds for reboot...";
-                    await sleep(6000);
-                } catch (err) {
-                    console.error("Failed to merge configuration:", err);
-                    status.innerText = "Warning: Failed to process config. Continuing...";
-                    await sleep(2000);
-                }
-            } else {
-
-                status.innerText = "Installation Successful! Rebooting...";
-                await fetch('/api/reboot', { method: 'POST' }).catch(()=>{});
-            }
+            status.innerText = "Installation Successful! Rebooting...";
+            await fetch('/api/reboot', { method: 'POST' });
         
-            setTimeout(() => { window.location.reload(); }, extractedConfig ? 2000 : 6000);
+            setTimeout(() => { window.location.reload(); }, 6000);
 
         } catch (err) {
             status.innerText = "Critical Error: " + err.message;
             console.error(err);
         }
     }
-
     function hexToRgb(hex) {
         const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
         return { r, g, b };
