@@ -4,7 +4,7 @@ import json
 import tarfile
 import struct
 
-VERSION = "0.0.2-alpha"
+VERSION = "0.0.3-alpha"
 BUILD_DIR = os.path.join("build", "esp32.esp32.d1_mini32")
 UPDATE_DIR = os.path.join(BUILD_DIR, "update")
 DATA_DIR = "data"
