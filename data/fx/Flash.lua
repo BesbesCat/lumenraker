@@ -1,23 +1,20 @@
-_G.tick = (_G.tick or 0) + 1
-local speed = config.speed or 128
-local delay_val = config.delay or 128
-local br = (config.brightness or 255) / 255.0
+function update()
+    local count = led.get_count()
+    if count == 0 then return end
 
-local period = 255 - speed
-if period < 10 then period = 10 end 
+    local period = math.max(10, (255 - config.speed) * 10) 
+    local phase = millis() % period
+    local threshold = (config.delay / 255.0) * period
+    local br = config.brightness / 255.0
 
-local phase = math.fmod(_G.tick, period)
-local threshold = (delay_val / 255.0) * period
-
-local count = led.get_count()
-
-if phase < threshold then
-    local r = math.floor((config.r or 255) * br)
-    local g = math.floor((config.g or 0) * br)
-    local b = math.floor((config.b or 0) * br)
-    for i = 0, count - 1 do 
-        led.set_rgb(i, r, g, b) 
+    if phase < threshold then
+        local r = math.floor(config.r * br)
+        local g = math.floor(config.g * br)
+        local b = math.floor(config.b * br)
+        for i = 0, count - 1 do 
+            led.set_rgb(i, r, g, b) 
+        end
+    else
+        led.clear()
     end
-else
-    led.clear()
 end

@@ -73,7 +73,7 @@
         .btn-save { background: var(--accent); color: #fff; width: 100%; padding: 15px; font-size: 1rem; margin-top: 20px; box-shadow: 0 4px 15px rgba(255,102,0,0.3); }
         
         .lua-layout { display: grid; grid-template-columns: 280px 1fr; gap: 20px; }
-        .file-list { background: var(--panel); border-radius: 8px; border: 1px solid var(--border); height: 500px; overflow-y: auto; }
+        .file-list { background: var(--panel); border-radius: 8px; border: 1px solid var(--border); height: 773px; overflow-y: auto; }
         .script-item { padding: 10px 15px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 0.9rem; }
         #editor { width: 100%; height: 430px; background: #0a0a0f; color: #a6accd; border: 1px solid var(--border); border-radius: 8px; padding: 15px; font-family: 'Consolas', monospace; resize: vertical; }
 	.header-left { display: flex; align-items: center; gap: 15px; }
@@ -162,14 +162,12 @@
     </div>
 
     <div id="lua" class="tab-content">
-        <div class="lua-layout">
+        <div class="lua-layout card">
             <div>
-                <h3>Effects Library</h3>
                 <div class="file-list" id="file-list"></div>
                 <button class="btn-add" style="width:100%; margin-top:10px;" onclick="newScript()">+ NEW EFFECT</button>
             </div>
-            <div class="card">
-                <h3>Effect Editor</h3>
+            <div>
                 <input type="text" id="script-name" placeholder="filename" style="margin-bottom:10px;" autocomplete="off">
 		<div id="lua-editor" style="height: 500px; width: 100%; border-radius: 8px; font-size: 14px;"></div>
                 <button class="btn-save" onclick="saveScript()">SAVE EFFECT</button>
@@ -207,9 +205,9 @@
                         </div>
                     </td>
                 </tr>
-                <tr>
-                    <td>Heap Fragment <div class="tooltip"><span class="info-icon">?</span><span class="tooltiptext">The largest single block of memory available for allocation.</span></div></td>
-                    <td id="stat-frag">0 KB</td>
+		<tr>
+                    <td>Min Free Heap <div class="tooltip"><span class="info-icon">?</span><span class="tooltiptext">The absolute lowest amount of free RAM recorded since the last reboot.</span></div></td>
+                    <td id="stat-min-heap">0 KB</td>
                 </tr>
                 <tr>
                     <td>Storage (LittleFS) <div class="tooltip"><span class="info-icon">?</span><span class="tooltiptext">Flash memory used for WebUI and Lua scripts.</span></div></td>
@@ -408,7 +406,7 @@
             const fps = await fpsRes.json();
 
             document.getElementById('stat-fps').innerText = `${fps.fps} FPS`;
-            document.getElementById('stat-frag').innerText = `${Math.round(sys.heap_max_alloc / 1024)} KB`;
+            document.getElementById('stat-min-heap').innerText = `${Math.round(sys.heap_min / 1024)} KB`;
             document.getElementById('stat-rssi').innerText = `${sys.wifi_rssi} dBm`;
             document.getElementById('stat-uptime').innerText = `${Math.floor(sys.uptime / 60)}m ${sys.uptime % 60}s`;
 

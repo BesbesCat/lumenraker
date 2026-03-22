@@ -9,8 +9,14 @@
 AsyncWebServer server(80);
 static File uploadFile;
 static File surgicalFile;
+size_t cachedFsUsed = 0;
+size_t cachedFsTotal = 0;
 
 extern String lastLuaDebug;
+
+void updateFsCache() {
+    cachedFsUsed = LittleFS.usedBytes();
+}
 
 void handleGetConfig(AsyncWebServerRequest *request) {
     JsonDocument doc;
@@ -137,6 +143,7 @@ void handleDeleteScript(AsyncWebServerRequest *request) {
     if(!request->hasParam("name")) return;
     String name = "/fx/" + request->getParam("name")->value() + ".lua";
     if(LittleFS.remove(name)) {
+        updateFsCache();
         request->send(200, "text/plain", "OK");
     } else {
         request->send(500, "text/plain", "FileSystem Error");
@@ -202,15 +209,16 @@ void handleFirmwareOTA(AsyncWebServerRequest *request, uint8_t *data, size_t len
 }
 
 void handleGetSysInfo(AsyncWebServerRequest *request) {
+    AsyncResponseStream *response = request->beginResponseStream("application/json");
+
     JsonDocument doc;
 
     doc["heap_free"] = ESP.getFreeHeap();
     doc["heap_total"] = ESP.getHeapSize();
     doc["heap_min"] = ESP.getMinFreeHeap();
-    doc["heap_max_alloc"] = ESP.getMaxAllocHeap();
 
-    doc["fs_used"] = LittleFS.usedBytes();
-    doc["fs_total"] = LittleFS.totalBytes();
+    doc["fs_used"] = cachedFsUsed;
+    doc["fs_total"] = cachedFsTotal;
 
     doc["uptime"] = millis() / 1000;
     doc["cpu_freq"] = ESP.getCpuFreqMHz();
@@ -219,9 +227,9 @@ void handleGetSysInfo(AsyncWebServerRequest *request) {
 
     doc["wifi_rssi"] = WiFi.RSSI();
 
-    String response;
-    serializeJson(doc, response);
-    request->send(200, "application/json", response);
+    serializeJson(doc, *response);
+    
+    request->send(response);
 }
 
 void webuiInit() {
@@ -229,6 +237,9 @@ void webuiInit() {
       Serial.println("LittleFS Mount Failed");
       return;
     }
+
+    cachedFsTotal = LittleFS.totalBytes();
+    updateFsCache();
 
     server.on("/api/sysinfo", HTTP_GET, handleGetSysInfo);
     server.on("/api/config", HTTP_GET, handleGetConfig);
@@ -289,13 +300,15 @@ void webuiInit() {
     });
 
     server.on("/api/version", HTTP_GET, [](AsyncWebServerRequest *request) {
-        String json = "{\"version\":\"" + LUMEN_VERSION + "\"}";
-        request->send(200, "application/json", json);
+        char buffer[64];
+        snprintf(buffer, sizeof(buffer), "{\"version\":\"%s\"}", LUMEN_VERSION);
+        request->send(200, "application/json", buffer);
     });
 
     server.on("/api/fps", HTTP_GET, [](AsyncWebServerRequest *request) {
-        String json = "{\"fps\":" + String(currentFPS) + "}";
-        request->send(200, "application/json", json);
+        char buffer[32];
+        snprintf(buffer, sizeof(buffer), "{\"fps\":%d}", currentFPS);
+        request->send(200, "application/json", buffer);
     });
 
     server.serveStatic("/", LittleFS, "/www/").setDefaultFile("index.html");

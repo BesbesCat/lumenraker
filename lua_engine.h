@@ -8,7 +8,6 @@
 extern lua_State* L_VM;
 
 void initLua();
-void update_lua_config(EffectConfig &cfg);
 bool executeLuaFast(int scriptRef, int zoneIndex);
 
 extern CRGB* currentLeds;

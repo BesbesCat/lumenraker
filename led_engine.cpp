@@ -86,13 +86,12 @@ void dumpZoneData(int id, CRGB* leds, int count) {
 void ledTask(void* pv) {
     unsigned long lastFpsTime = millis();
     int frameCount = 0;
+
     while(true) {
         bool showNeeded = false;
-        
         if (L_VM) {
             lua_gc(L_VM, LUA_GCSTEP, 2); 
         }
-
         for (int i = 0; i < config.zoneCount; i++) {
             Zone &z = config.zones[i];
             EffectConfig &ef = z.events[currentEvent];
@@ -128,9 +127,7 @@ void ledTask(void* pv) {
             }
 
             current_lua_config = &ef;
-            if (cachedScriptRef[i] != LUA_NOREF) {
-                update_lua_config(ef);
-                
+            if (cachedScriptRef[i] != LUA_NOREF) {                
                 if (executeLuaFast(cachedScriptRef[i], i)) {
                     showNeeded = true;
                 }
@@ -142,7 +139,7 @@ void ledTask(void* pv) {
             for (int i = 0; i < config.stripCount; i++) {
                 if (hwStrips[i]) {
                     while (!hwStrips[i]->CanShow()) {
-                        vTaskDelay(pdMS_TO_TICKS(1));
+                        taskYIELD();
                     }
                 }
             }
@@ -170,9 +167,7 @@ void ledTask(void* pv) {
             currentFPS = frameCount;
             frameCount = 0;
             lastFpsTime = currentMillis;
-
-            // Serial.printf("[LED] FPS: %d\n", currentFPS); 
         }
-        vTaskDelay(pdMS_TO_TICKS(1));
+        taskYIELD();
     }
 }

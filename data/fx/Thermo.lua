@@ -1,25 +1,31 @@
-local state = klipper.get_state()
-local count = led.get_count()
-local temp = state.temp or 0
-local target = state.target or 0
+function update()
+    local count = led.get_count()
+    if count == 0 then return end
 
-led.clear()
+    local temp = klipper.temp
+    local target = klipper.target
+    local br = config.brightness / 255.0
 
-if target > 20 then
-    local progress = math.min(1.0, temp / target)
-    local active_leds = math.floor(progress * count)
+    led.clear()
 
-    for i = 0, count - 1 do
-        if i < active_leds then
-            led.set_rgb(i, 200, 40, 0)
-        elseif i == active_leds then
-            local flicker = math.random(150, 255)
-            led.set_rgb(i, flicker, 100, 0)
+    if target > 20 then
+        local progress = math.min(1.0, math.max(0.0, temp / target))
+        local active_leds = math.floor(progress * count)
+
+        for i = 0, count - 1 do
+            if i < active_leds then
+                led.set_rgb(i, math.floor(200 * br), math.floor(40 * br), 0)
+            elseif i == active_leds then
+                local flicker = math.random(150, 255)
+                led.set_rgb(i, math.floor(flicker * br), math.floor(100 * br), 0)
+            end
         end
-    end
-else
-    local b = math.floor(127 + 126 * math.sin(os.clock() * config.speed))
-    for i = 0, count - 1 do
-        led.set_rgb(i, 0, 0, b)
+    else
+        local time = millis() * (config.speed / 5000.0)
+        local pulse = (math.sin(time) + 1) / 2
+        local blue_val = math.floor((127 + 128 * pulse) * br)
+        for i = 0, count - 1 do
+            led.set_rgb(i, 0, 0, blue_val)
+        end
     end
 end

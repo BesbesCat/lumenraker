@@ -1,27 +1,22 @@
-local count = led.get_count()
-local speed = (config.speed or 128) / 20.0
-local tail_length = math.max(1, (config.size or 100) / 5.0)
-local brightness = (config.brightness or 255) / 255.0
+function update()
+    local count = led.get_count()
+    if count == 0 then return end
 
-local r = config.r or 255
-local g = config.g or 120
-local b = config.b or 0
+    local tail_fade = 128 + math.floor(config.size * 0.47)
+    led.fade(tail_fade)
 
-local time = os.clock() * speed * 10
-local pos = (time % count)
-for i = 0, count - 1 do
-    local dist = pos - i
+    local speed = config.speed / 50 
+    local current_time = millis()
     
-    if dist < 0 then dist = dist + count end
+    local head_pos = math.floor((current_time * speed) % count)
 
-    local intensity = 0
-    if dist < tail_length then
-        intensity = math.exp(-dist * (4.0 / tail_length))
-    end
+    local br = config.brightness / 255
+    local r = math.floor(config.r * br)
+    local g = math.floor(config.g * br)
+    local b = math.floor(config.b * br)
 
-    led.set_rgb(i,
-        math.floor(r * intensity * brightness),
-        math.floor(g * intensity * brightness),
-        math.floor(b * intensity * brightness)
-    )
+    led.set_rgb(head_pos, r, g, b)
+    
+    local secondary_pos = (head_pos - 1 + count) % count
+    led.set_rgb(secondary_pos, r, g, b)
 end

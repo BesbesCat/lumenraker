@@ -1,46 +1,26 @@
-_G.smooth_t = _G.smooth_t or 0
-local state = klipper.get_state()
+if not bedtemp_track then bedtemp_track = {} end
 
-local t_cur = state.temp or 0
-local t_tgt = state.target or 0
-if t_tgt < 1
-then
-t_tgt = 1
-end
+function update()
+    local count = led.get_count()
+    if count == 0 then return end
 
-local sf = (config.speed or 128) / 255.0
+    local my_id = id or 0
+    local t_cur = klipper.temp
+    local t_tgt = math.max(1, klipper.target)
+    
+    bedtemp_track[my_id] = bedtemp_track[my_id] or t_cur
 
-sf = sf * 0.1
+    local sf = math.max(0.001, (config.speed / 255.0) * 0.1)
+    bedtemp_track[my_id] = bedtemp_track[my_id] + (t_cur - bedtemp_track[my_id]) * sf
 
-if sf < 0.001
-then
-sf = 0.001
-end
+    local ratio = math.max(0, math.min(1, bedtemp_track[my_id] / t_tgt))
+    local br = config.brightness / 255.0
 
-_G.smooth_t = _G.smooth_t + (t_cur - _G.smooth_t) * sf
+    local r = math.floor((config.r + (255 - config.r) * ratio) * br)
+    local g = math.floor((config.g + (0 - config.g) * ratio) * br)
+    local b = math.floor((config.b + (0 - config.b) * ratio) * br)
 
-local ratio = _G.smooth_t / t_tgt
-if ratio > 1
-then
-ratio = 1
-end
-
-if ratio < 0
-then
-ratio = 0
-end
-
-local br = (config.brightness or 255) / 255
-
-local base_r, base_g, base_b = config.r or 0, config.g or 0, config.b or 255
-
-local r = math.floor((base_r + (255 - base_r) * ratio) * br)
-
-local g = math.floor((base_g + (0 - base_g) * ratio) * br)
-
-local b = math.floor((base_b + (0 - base_b) * ratio) * br)
-
-local count = led.get_count()
-for i = 0, count - 1 do
-    led.set_rgb(i, r, g, b)
+    for i = 0, count - 1 do
+        led.set_rgb(i, r, g, b)
+    end
 end

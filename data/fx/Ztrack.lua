@@ -1,16 +1,22 @@
-local state = klipper.get_state()
-local count = led.get_count()
-local z_prog = state.pos[3] or 0
-led.clear()
+function update()
+    local count = led.get_count()
+    if count == 0 then return end
+    
+    local z_prog = klipper.get_pos(3) 
+    local head_pos = math.floor(math.max(0, math.min(1, z_prog)) * (count - 1))
+    local br = config.brightness / 255.0
+    
+    local bg_r = math.floor((config.r / 10) * br)
+    local bg_g = math.floor((config.g / 10) * br)
+    local bg_b = math.floor((config.b / 10) * br)
 
-local head_pos = math.floor(z_prog * (count - 1))
-
-for i = 0, count - 1 do
-    if i < head_pos then
-        led.set_rgb(i, 0, config.brightness, 0)
-    elseif i == head_pos then
-        led.set_rgb(i, 255, 255, 255)
-    else
-        led.set_rgb(i, config.r/10, config.g/10, config.b/10)
+    for i = 0, count - 1 do
+        if i < head_pos then
+            led.set_rgb(i, 0, math.floor(255 * br), 0)
+        elseif i == head_pos then
+            led.set_rgb(i, math.floor(255 * br), math.floor(255 * br), math.floor(255 * br))
+        else
+            led.set_rgb(i, bg_r, bg_g, bg_b)
+        end
     end
 end
