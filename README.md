@@ -1,9 +1,11 @@
 
 <p align="center">
-  ![Lumenraker Logo](logo.png)
+  <img src="logo.png" width="20%" alt="Sublime's custom image"/>
 </p>
 
-# Lumenraker
+<h1 align="center">
+Lumenraker
+</h1>
 
 **The Scriptable LED Controller for Klipper and Moonraker**
 
