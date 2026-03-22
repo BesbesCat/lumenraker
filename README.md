@@ -1,4 +1,8 @@
 
+<p align="center">
+  <img src="logo.png" width="200">
+</p>
+
 # Lumenraker
 
 **The Scriptable LED Controller for Klipper and Moonraker**
