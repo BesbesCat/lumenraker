@@ -1,5 +1,7 @@
 
-![Lumenraker Logo](logo.png)
+<p align="center">
+  ![Lumenraker Logo](logo.png)
+</p>
 
 # Lumenraker
 
