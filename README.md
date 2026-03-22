@@ -176,6 +176,7 @@ These variables are injected automatically into the environment every time a zon
 |Function  |Description  |
 |--|--|
 |`log(message)`|Sends a string directly to the WebUI Debug Console. Essential for troubleshooting math or logic in your scripts.|
+|`millis()`|Returns the number of milliseconds since the ESP32 began running the current program.|
     
 ----------
 
@@ -188,6 +189,7 @@ Controls the physical pixels for the current executing zone. Lumenraker automati
 | `led.set_rgb(i, r, g, b)` | Sets the LED at index `i` to the specified Red, Green, and Blue values (0-255). |
 | `led.set_hsv(i, h, s, v)` | Sets the LED at index `i` using Hue, Saturation, and Value (0-255). |
 | `led.clear()` | Instantly turns off all LEDs in the current zone. |
+| `led.fade(amount)` | Fades all LEDs in the zone by the specified amount (0-255). |
 
 ----------
 
@@ -208,59 +210,53 @@ Pulls data directly from the sliders in the WebUI for the current event. This al
 ### The `klipper` Module
 
 Reads the live data polled from Moonraker.
-|Function  |Description  |
+|Variable / Function|Description  |
 |--|--|
-| `klipper.get_json()` | Returns the raw JSON string of the last successful Moonraker poll. This is useful for parsing advanced telemetry data not included in `get_state()`. |
-| `klipper.get_state()` | Returns a Lua table containing the most critical live printer metrics. |
-
-#### klipper.get_state() 
-|Variable|Description  |
-|--|--|
-| `event` | Current state (e.g., "Idle", "Start Print", "Heating"). |
-| `temp` | Current bed temperature. |
-| `target` | Target temperature. |
-| `pos` | An array (indices 1-16) containing progress or positional data tracking. |
+| `klipper.event` | Current state (e.g., "Idle", "Start Print", "Heating"). |
+| `klipper.temp` | Current bed temperature. |
+| `klipper.target` | Target temperature. |
+| `klipper.get_pos(idx)` | Returns progress or positional data tracking (idx 1-16). |
+| `klipper.get_json()` | Returns the raw JSON string of the last successful Moonraker poll. |
 
 
 ----------
 
 ### Example Lua Script: Heating Progress Bar
 
-The following example utilizes the API to create a dynamic progress bar based on the current heating temperatures.
+The following example utilizes the API to create a dynamic progress bar based on the current heating temperatures. Note that scripts should define an `update()` function which is called every frame.
 
 Lua
 
-```
--- Retrieve values from the WebUI configuration sliders
-local r = config.r
-local g = config.g
-local b = config.b
+```lua
 local count = led.get_count()
 
--- Retrieve current printer state
-local state = klipper.get_state()
-local current_temp = state.temp
-local target_temp = state.target
+function update()
+    -- Retrieve values from the WebUI configuration sliders
+    local r, g, b = config.r, config.g, config.b
 
--- Prevent division by zero
-if target_temp <= 0 then target_temp = 1 end
+    -- Retrieve current printer state directly from klipper module
+    local current_temp = klipper.temp
+    local target_temp = klipper.target
 
--- Calculate proportional illumination
-local percentage = current_temp / target_temp
-if percentage > 1 then percentage = 1 end
-local leds_to_light = math.floor(count * percentage)
+    -- Prevent division by zero
+    if target_temp <= 0 then target_temp = 1 end
 
--- Render the LEDs
-led.clear()
-for i = 0, leds_to_light - 1 do
-    led.set_rgb(i, r, g, b)
+    -- Calculate proportional illumination
+    local percentage = current_temp / target_temp
+    if percentage > 1 then percentage = 1 end
+    local leds_to_light = math.floor(count * percentage)
+
+    -- Render the LEDs
+    led.clear()
+    for i = 0, leds_to_light - 1 do
+        led.set_rgb(i, r, g, b)
+    end
+
+    -- Optional: Log heating progress occasionally
+    if millis() % 5000 < 20 then
+        log("Heating Progress: " .. math.floor(percentage * 100) .. "%")
+    end
 end
-
--- Debugging output to WebUI
-if count > 0 then
-    log("Heating Progress: " .. math.floor(percentage * 100) .. "%")
-end
-
 ```
 
 ----------
