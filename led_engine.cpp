@@ -25,24 +25,66 @@ public:
 
 StripWrapper* hwStrips[MAX_STRIPS] = {nullptr};
 
-CRGB leds[MAX_STRIPS][MAX_LEDS];
-
-CRGB* currentLeds = nullptr;
-uint16_t currentCount = 0;
+CRGB* stripBuffers[MAX_STRIPS] = {nullptr};
+CRGB** universeMap = nullptr; 
+uint16_t totalUniverseLeds = 0;
 
 volatile EventType currentEvent = EVT_IDLE;
 float progress[16];
 float currentTemp = 0;
 float targetTemp = 0;
 
-int cachedScriptRef[MAX_ZONES] = {LUA_NOREF}; 
-char cachedPath[MAX_ZONES][64] = {0};
+int* cachedScriptRef = nullptr;
+char (*cachedPath)[64] = nullptr;
 
 bool currentReversed = false;
+uint16_t currentZoneStart = 0;
+uint16_t currentCount = 0;
+
 const EffectConfig* current_lua_config = nullptr;
 int currentFPS = 0;
 
+void allocateBuffers() {
+    if (universeMap) { delete[] universeMap; universeMap = nullptr; }
+    for (int i = 0; i < MAX_STRIPS; i++) {
+        if (stripBuffers[i]) { delete[] stripBuffers[i]; stripBuffers[i] = nullptr; }
+    }
+    
+    totalUniverseLeds = 0;
+    for (int i = 0; i < config.stripCount; i++) {
+        int c = config.strips[i].count;
+        if (c > 0) {
+            stripBuffers[i] = new CRGB[c];
+            totalUniverseLeds += c;
+        }
+    }
+    
+    if (totalUniverseLeds > 0) {
+        universeMap = new CRGB*[totalUniverseLeds];
+        uint16_t mapIndex = 0;
+        for (int i = 0; i < config.stripCount; i++) {
+            int c = config.strips[i].count;
+            for (int j = 0; j < c; j++) {
+                universeMap[mapIndex++] = &stripBuffers[i][j];
+            }
+        }
+    }
+
+    if (cachedScriptRef) delete[] cachedScriptRef;
+    if (cachedPath) delete[] cachedPath;
+    
+    cachedScriptRef = new int[config.zoneCount];
+    cachedPath = new char[config.zoneCount][64];
+    
+    for (int i = 0; i < config.zoneCount; i++) {
+        cachedScriptRef[i] = LUA_NOREF;
+        memset(cachedPath[i], 0, 64);
+    }
+}
+
 void ledsInit() {
+    allocateBuffers(); 
+
     for (int i = 0; i < config.stripCount; i++) {
         int p = config.strips[i].gpio;
         int c = config.strips[i].count;
@@ -70,35 +112,21 @@ void ledsInit() {
     initLua();
 }
 
-void dumpZoneData(int id, CRGB* leds, int count) {
-    static uint32_t lastDump = 0;
-    if (millis() - lastDump < 2000) return;
-    if (id != 0) return;
-
-    Serial.printf("\n--- DUMP ZONE %d (%d LEDs) ---\n", id, count);
-    for (int i = 0; i < count; i++) {
-        Serial.printf("#%02X%02X%02X ", leds[i].r, leds[i].g, leds[i].b);
-        if ((i + 1) % 10 == 0) Serial.println();
-    }
-    Serial.println("\n--- END DUMP ---");
-    if (id == config.zoneCount - 1) lastDump = millis(); 
-}
 void ledTask(void* pv) {
     unsigned long lastFpsTime = millis();
     int frameCount = 0;
 
     while(true) {
         bool showNeeded = false;
-        if (L_VM) {
-            lua_gc(L_VM, LUA_GCSTEP, 2); 
-        }
+        if (L_VM) { lua_gc(L_VM, LUA_GCSTEP, 2); }
+
         for (int i = 0; i < config.zoneCount; i++) {
             Zone &z = config.zones[i];
             EffectConfig &ef = z.events[currentEvent];
             
             if (strlen(ef.scriptName) == 0) continue;
 
-            currentLeds = &leds[z.strip][z.start];
+            currentZoneStart = z.start; 
             currentCount = z.length;
             currentReversed = z.reversed;
             
@@ -138,9 +166,7 @@ void ledTask(void* pv) {
         if (showNeeded) {
             for (int i = 0; i < config.stripCount; i++) {
                 if (hwStrips[i]) {
-                    while (!hwStrips[i]->CanShow()) {
-                        taskYIELD();
-                    }
+                    while (!hwStrips[i]->CanShow()) { taskYIELD(); }
                 }
             }
 
@@ -150,18 +176,18 @@ void ledTask(void* pv) {
                 if (hwStrips[i]) {
                     for (int j = 0; j < config.strips[i].count; j++) {
                         RgbColor hwColor(
-                            leds[i][j].r * masterBrightness,
-                            leds[i][j].g * masterBrightness,
-                            leds[i][j].b * masterBrightness
+                            stripBuffers[i][j].r * masterBrightness,
+                            stripBuffers[i][j].g * masterBrightness,
+                            stripBuffers[i][j].b * masterBrightness
                         );
                         hwStrips[i]->SetPixelColor(j, hwColor);
                     }
-                    
                     hwStrips[i]->Show();
                     frameCount++;
                 }
             }
         }
+        
         unsigned long currentMillis = millis();
         if (currentMillis - lastFpsTime >= 1000) {
             currentFPS = frameCount;

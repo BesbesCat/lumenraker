@@ -5,7 +5,6 @@
 #include <Update.h>
 #include "config.h"
 
-
 AsyncWebServer server(80);
 static File uploadFile;
 static File surgicalFile;
@@ -52,7 +51,6 @@ void handleGetConfig(AsyncWebServerRequest *request) {
             ev["dl"] = config.zones[i].events[e].delay;
             ev["sz"] = config.zones[i].events[e].size;
             ev["br"] = config.zones[i].events[e].brightness;
-
         }
     }
 
@@ -83,24 +81,33 @@ void handleSaveConfig(AsyncWebServerRequest *request, uint8_t *data, size_t len,
                 config.strips[i].count = doc["strips"][i]["cnt"];
             }
 
-            config.zoneCount = doc["zones"].size();
-            for(int i=0; i<config.zoneCount && i<MAX_ZONES; i++) {
-                config.zones[i].strip = doc["zones"][i]["sIdx"];
-                config.zones[i].start = doc["zones"][i]["start"];
-                config.zones[i].length = doc["zones"][i]["len"];
-                config.zones[i].reversed = doc["zones"][i]["rev"] | false;
+            JsonArray jsonZones = doc["zones"];
+            int newZoneCount = jsonZones.size();
+            
+            if (config.zones) {
+                delete[] config.zones;
+            }
+            config.zoneCount = newZoneCount;
+            config.zones = new Zone[config.zoneCount];
+
+            for(int i=0; i<config.zoneCount; i++) {
+                config.zones[i].strip = jsonZones[i]["sIdx"];
+                config.zones[i].start = jsonZones[i]["start"];
+                config.zones[i].length = jsonZones[i]["len"];
+                config.zones[i].reversed = jsonZones[i]["rev"] | false;
                 
                 for(int e=0; e<EVT_COUNT; e++) {
-                    strlcpy(config.zones[i].events[e].scriptName, doc["zones"][i]["evts"][e]["fx"] | "Solid Color", sizeof(config.zones[i].events[e].scriptName));
-                    config.zones[i].events[e].r = doc["zones"][i]["evts"][e]["r"] | 200;
-                    config.zones[i].events[e].g = doc["zones"][i]["evts"][e]["g"] | 200;
-                    config.zones[i].events[e].b = doc["zones"][i]["evts"][e]["b"] | 200;
-                    config.zones[i].events[e].speed = doc["zones"][i]["evts"][e]["sp"] | 200;
-                    config.zones[i].events[e].delay = doc["zones"][i]["evts"][e]["dl"] | 200;
-                    config.zones[i].events[e].size = doc["zones"][i]["evts"][e]["sz"] | 200;
-                    config.zones[i].events[e].brightness = doc["zones"][i]["evts"][e]["br"] | 200;
+                    strlcpy(config.zones[i].events[e].scriptName, jsonZones[i]["evts"][e]["fx"] | "Solid Color", sizeof(config.zones[i].events[e].scriptName));
+                    config.zones[i].events[e].r = jsonZones[i]["evts"][e]["r"] | 200;
+                    config.zones[i].events[e].g = jsonZones[i]["evts"][e]["g"] | 200;
+                    config.zones[i].events[e].b = jsonZones[i]["evts"][e]["b"] | 200;
+                    config.zones[i].events[e].speed = jsonZones[i]["evts"][e]["sp"] | 200;
+                    config.zones[i].events[e].delay = jsonZones[i]["evts"][e]["dl"] | 200;
+                    config.zones[i].events[e].size = jsonZones[i]["evts"][e]["sz"] | 200;
+                    config.zones[i].events[e].brightness = jsonZones[i]["evts"][e]["br"] | 200;
                 }
             }
+            
             saveConfig();
             request->send(200, "text/plain", "OK");
             delay(1000); ESP.restart();
@@ -301,7 +308,7 @@ void webuiInit() {
 
     server.on("/api/version", HTTP_GET, [](AsyncWebServerRequest *request) {
         char buffer[64];
-        snprintf(buffer, sizeof(buffer), "{\"version\":\"%s\"}", LUMEN_VERSION);
+        snprintf(buffer, sizeof(buffer), "{\"version\":\"%s\"}", LUMEN_VERSION.c_str());
         request->send(200, "application/json", buffer);
     });
 

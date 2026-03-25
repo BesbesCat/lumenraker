@@ -6,20 +6,13 @@
 Preferences prefs;
 Config config;
 
-const char* const EventNames[] = {
-  "Idle", 
-  "Printing", 
-  "Heating", 
-  "Homing", 
-  "Error", 
-  "Shutdown"
-};
-
-const char* const EffectNames[] = {
-  "Solid"
-};
+const char* const EventNames[] = { "Idle", "Printing", "Heating Bed", "Heating Extruder", "Moving", "Error", "Shutdown" };
 
 void defaultConfig() {
+  if (config.zones) { 
+      delete[] config.zones; 
+      config.zones = nullptr; 
+  }
   memset(&config, 0, sizeof(Config));
   
   strcpy(config.moonrakerHost, "192.168.1.100");
@@ -31,6 +24,8 @@ void defaultConfig() {
   config.strips[0].count = 60;
 
   config.zoneCount = 1;
+  config.zones = new Zone[1]; // Allocate 1 zone by default
+  
   config.zones[0].strip = 0;
   config.zones[0].start = 0;
   config.zones[0].length = 60;
@@ -41,24 +36,23 @@ void defaultConfig() {
     config.zones[0].events[i].r = 255; 
     config.zones[0].events[i].g = 255;
     config.zones[0].events[i].b = 255;
-    config.zones[0].events[i].speed = 0; 
+    config.zones[0].events[i].speed = 128; 
     config.zones[0].events[i].delay = 0;
     config.zones[0].events[i].brightness = 255;
-    config.zones[0].events[i].size = 255; 
+    config.zones[0].events[i].size = 128; 
   }
 }
 
 void loadConfig() {
   prefs.begin("klpro", false);
-  
   uint32_t version = prefs.getUInt("cfgVer", 0);
-
+  
   if(version != 101) { 
     prefs.end();
     Serial.println("[Config] No valid config found. Loading Defaults...");
     defaultConfig();
     saveConfig();
-    return; 
+    return;
   }
 
   prefs.getBytes("wifiSSID", config.wifiSSID, 32);
@@ -70,10 +64,17 @@ void loadConfig() {
   config.zoneCount = prefs.getInt("zCnt", 1);
 
   prefs.getBytes("strips", config.strips, sizeof(config.strips));
-  prefs.getBytes("zones", config.zones, sizeof(config.zones));
+  
+  // Dynamically allocate and load each zone independently
+  config.zones = new Zone[config.zoneCount];
+  for (int i = 0; i < config.zoneCount; i++) {
+      char key[16]; 
+      snprintf(key, sizeof(key), "z%d", i);
+      prefs.getBytes(key, &config.zones[i], sizeof(Zone));
+  }
   
   prefs.end();
-
+  
   if(config.stripCount == 0 || config.stripCount > MAX_STRIPS) {
     defaultConfig();
   }
@@ -87,12 +88,17 @@ void saveConfig() {
   prefs.putBytes("mHost", config.moonrakerHost, 64);
   prefs.putInt("mPort", config.moonrakerPort);
   prefs.putInt("br", config.brightness);
-
   prefs.putInt("sCnt", config.stripCount);
   prefs.putInt("zCnt", config.zoneCount);
 
   prefs.putBytes("strips", config.strips, sizeof(config.strips));
-  prefs.putBytes("zones", config.zones, sizeof(config.zones));
+  
+  // Save zones independently
+  for (int i = 0; i < config.zoneCount; i++) {
+      char key[16]; 
+      snprintf(key, sizeof(key), "z%d", i);
+      prefs.putBytes(key, &config.zones[i], sizeof(Zone));
+  }
   
   prefs.end();
   Serial.println("[Config] Saved to NVM");
@@ -100,16 +106,7 @@ void saveConfig() {
 
 void setupFS() {
     if(!LittleFS.begin(true)){
-      Serial.println("LittleFS Mount Failed");
-      return;
-    }
-
-    if (!LittleFS.exists("/fx")) {
-        Serial.println("Creating /fx directory...");
-        if (LittleFS.mkdir("/fx")) {
-            Serial.println("Directory created successfully");
-        } else {
-            Serial.println("Failed to create directory");
-        }
+        Serial.println("LittleFS Mount Failed");
+        return;
     }
 }

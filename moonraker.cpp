@@ -4,7 +4,7 @@
 #include "config.h"
 #include <LittleFS.h>
 
-char lastMoonrakerJson[2048] = "";
+char lastMoonrakerJson[1024] = "";
 extern EventType currentEvent;
 extern float progress[16];
 extern float currentTemp;
@@ -15,34 +15,66 @@ WebSocketsClient ws;
 void webuiInit();
 
 void handleStatus(JsonObject s) {
-//char output[1000];
-//serializeJson(s, output);
-//Serial.println(output);
 
     if (s.containsKey("toolhead") && s["toolhead"]["position"]) {
-      if(sizeof(s["toolhead"]["position"]) >= 3) {
-        progress[0] = s["toolhead"]["position"][0];
-        progress[1] = s["toolhead"]["position"][1];
-        progress[2] = s["toolhead"]["position"][2];
+      JsonArray pos = s["toolhead"]["position"].as<JsonArray>();
+      if(pos.size() >= 3) {
+        progress[0] = pos[0];
+        progress[1] = pos[1];
+        progress[2] = pos[2];
         currentEvent = EVT_HOMING;
       }
     }
 
+    static float bedTemp = 0;
+    static float bedTarget = 0;
+
     if (s.containsKey("heater_bed")) {
         JsonObject bed = s["heater_bed"];
+        
         if (bed.containsKey("temperature")) {
-            currentTemp = bed["temperature"].as<float>();
+          bedTemp = bed["temperature"].as<float>();
         }
         if (bed.containsKey("target")) {
-          targetTemp = s["heater_bed"]["target"].as<float>();
+          bedTarget = bed["target"].as<float>();
         }
-        if (targetTemp > 0 && currentTemp < targetTemp - 1) {
+
+        if (bedTarget > 0 && bedTemp < bedTarget - 1) {
+          currentTemp = bedTemp;
+          targetTemp = bedTarget;
           currentEvent = EVT_HEATING;
+          return;
         }
-        if(targetTemp == 0) {
-          if(currentEvent == EVT_HEATING) {
-            currentEvent = EVT_IDLE;
-          }
+        
+        if (bedTarget == 0 && currentEvent == EVT_HEATING) {
+          currentEvent = EVT_IDLE;
+          return;
+        }
+    }
+
+    static float extTemp = 0;
+    static float extTarget = 0;
+
+    if (s.containsKey("extruder")) {
+        JsonObject extruder = s["extruder"];
+        
+        if (extruder.containsKey("temperature")) {
+          extTemp = extruder["temperature"].as<float>();
+        }
+        if (extruder.containsKey("target")) {
+          extTarget = extruder["target"].as<float>();
+        }
+
+        if (extTarget > 0 && extTemp < extTarget - 1) {
+          currentTemp = extTemp;
+          targetTemp = extTarget;
+          currentEvent = EVT_HEATING_EXTRUDER;
+          return;
+        }
+        
+        if (extTarget == 0 && currentEvent == EVT_HEATING_EXTRUDER) {
+          currentEvent = EVT_IDLE;
+          return;
         }
     }
 
@@ -80,10 +112,12 @@ void wsEvent(WStype_t t, uint8_t* payload, size_t len) {
             break;
         case WStype_DISCONNECTED:
         {
+            currentEvent = EVT_SHUTDOWN;
             Serial.println("[Moonraker] Disconnected. Check IP/Port.");
             break;
         }
         case WStype_ERROR:
+            currentEvent = EVT_SHUTDOWN;
             Serial.printf("[WS] Error: %s\n", payload != NULL ? (char*)payload : "Unknown");
             break;
     }

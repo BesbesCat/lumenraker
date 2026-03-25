@@ -10,29 +10,35 @@ extern float progress[16];
 extern float currentTemp;
 extern float targetTemp;
 
-extern CRGB* currentLeds;
+extern CRGB** universeMap;
+extern uint16_t totalUniverseLeds;
+extern uint16_t currentZoneStart;
 extern uint16_t currentCount;
+
 lua_State* L_VM = nullptr;
 extern String lastLuaDebug = "";
 
-static int last_bound_script[MAX_ZONES];
-static EventType last_event[MAX_ZONES];
+static int* last_bound_script = nullptr;
+static EventType* last_event = nullptr;
 
 int l_get_count(lua_State* L) {
-    lua_pushinteger(L, currentLeds ? currentCount : 0);
+    lua_pushinteger(L, universeMap ? currentCount : 0);
     return 1;
 }
 
 int l_clear(lua_State* L) {
-    if (!currentLeds || currentCount == 0) return 0;
+    if (!universeMap || currentCount == 0) return 0;
     for (int i = 0; i < currentCount; i++) {
-        currentLeds[i] = CRGB(0, 0, 0);
+        uint16_t global_i = currentZoneStart + i;
+        if (global_i < totalUniverseLeds) {
+            *(universeMap[global_i]) = CRGB(0, 0, 0);
+        }
     }
     return 0;
 }
 
 int l_set_hsv(lua_State* L) {
-    if (!currentLeds) return 0;
+    if (!universeMap) return 0;
     int i = luaL_checkinteger(L, 1);
     float h = luaL_checkinteger(L, 2) / 255.0f;
     float s = luaL_checkinteger(L, 3) / 255.0f;
@@ -40,20 +46,23 @@ int l_set_hsv(lua_State* L) {
 
     if (currentReversed) i = (currentCount - 1) - i;
     
-    if (i >= 0 && i < currentCount) {
+    uint16_t global_i = currentZoneStart + i;
+    if (global_i < totalUniverseLeds) {
         HsbColor hsb(h, s, v);
         RgbColor rgb(hsb);
-        currentLeds[i] = CRGB(rgb.R, rgb.G, rgb.B);
+        *(universeMap[global_i]) = CRGB(rgb.R, rgb.G, rgb.B);
     }
     return 0;
 }
 
 int l_set_rgb(lua_State* L) {
-    if (!currentLeds) return 0;
+    if (!universeMap) return 0;
     int i = luaL_checkinteger(L, 1);
     if (currentReversed) i = (currentCount - 1) - i;
-    if (i >= 0 && i < currentCount) {
-        currentLeds[i] = CRGB(
+    
+    uint16_t global_i = currentZoneStart + i;
+    if (global_i < totalUniverseLeds) {
+        *(universeMap[global_i]) = CRGB(
             luaL_checkinteger(L, 2),
             luaL_checkinteger(L, 3),
             luaL_checkinteger(L, 4)
@@ -63,12 +72,17 @@ int l_set_rgb(lua_State* L) {
 }
 
 int l_fade(lua_State* L) {
-    if (!currentLeds || currentCount == 0) return 0;
+    if (!universeMap || currentCount == 0) return 0;
     uint16_t fadeAmount = luaL_checkinteger(L, 1); 
+    
     for (int i = 0; i < currentCount; i++) {
-        currentLeds[i].r = (currentLeds[i].r * fadeAmount) >> 8;
-        currentLeds[i].g = (currentLeds[i].g * fadeAmount) >> 8;
-        currentLeds[i].b = (currentLeds[i].b * fadeAmount) >> 8;
+        uint16_t global_i = currentZoneStart + i;
+        if (global_i < totalUniverseLeds) {
+            CRGB* pixel = universeMap[global_i];
+            pixel->r = (pixel->r * fadeAmount) >> 8;
+            pixel->g = (pixel->g * fadeAmount) >> 8;
+            pixel->b = (pixel->b * fadeAmount) >> 8;
+        }
     }
     return 0;
 }
@@ -123,9 +137,8 @@ int l_get_json(lua_State* L) {
 }
 
 bool executeLuaFast(int scriptRef, int zoneIndex) {
-    if (!L_VM || zoneIndex >= MAX_ZONES) return false;
+    if (!L_VM || zoneIndex >= config.zoneCount) return false;
 
-    // 1. Set context
     lua_pushinteger(L_VM, zoneIndex);
     lua_setglobal(L_VM, "id");
     lua_pushinteger(L_VM, (zoneIndex % 2 == 0) ? 2 : 1);
@@ -152,12 +165,6 @@ bool executeLuaFast(int scriptRef, int zoneIndex) {
             lua_rawseti(L_VM, -2, zoneIndex); 
             last_bound_script[zoneIndex] = scriptRef;
             last_event[zoneIndex] = currentEvent; 
-        } else {
-            lua_pop(L_VM, 1);
-            lua_pushnil(L_VM);
-            lua_rawseti(L_VM, -2, zoneIndex);
-            last_bound_script[zoneIndex] = scriptRef;
-            last_event[zoneIndex] = currentEvent;
         }
         
         lua_rawgeti(L_VM, -1, zoneIndex);
@@ -184,7 +191,13 @@ void initLua() {
     L_VM = luaL_newstate();
     luaL_openlibs(L_VM);
 
-    for(int i=0; i<MAX_ZONES; i++) {
+    if (last_bound_script) delete[] last_bound_script;
+    if (last_event) delete[] last_event;
+
+    last_bound_script = new int[config.zoneCount];
+    last_event = new EventType[config.zoneCount];
+
+    for(int i=0; i < config.zoneCount; i++) {
         last_bound_script[i] = -1;
         last_event[i] = (EventType)-1;
     }
