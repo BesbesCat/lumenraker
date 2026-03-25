@@ -57,7 +57,7 @@ Core 1: Dedicated entirely to the Lua Virtual Machine and calculating the LED fr
 
 ## Hardware Requirements
 
--   **Microcontroller:** ESP32 (Tested on MH-ET LIVE D1 Mini). _Note: ESP8266 is not supported due to the lack of dual cores and RMT hardware._
+-   **Microcontroller:** ESP32. _Note: ESP8266 is not supported due to the lack of dual cores and RMT hardware._
     
 -   **LEDs:** WS2812B (NeoPixels) or compatible 3-wire addressable strips.
     
@@ -146,19 +146,17 @@ A "Strip" represents a physical connection to a specific pin on the ESP32.
 
 ### Lighting Zones
 
-A "Zone" is a logical segment of a Strip. You can assign the entirety of a strip to a single zone, or split it into multiple zones (e.g., left case, right case, toolhead) that act independently.
+A "Zone" is a logical segment of the whole rendered LED map across all strips. You can assign the entirety of a strip to a single zone, have a zone extend to more than a strip, or split a strip into multiple zones (e.g., left case, right case, toolhead) that act independently.
 
 1.  Click **+ NEW ZONE**.
+        
+2.  **Start:** The index of the first LED in this zone (0-indexed).
     
-2.  **Strip ID:** Select which physical strip this zone belongs to (0 corresponds to the first strip created in the LED Strips tab).
+3.  **Length:** How many LEDs are in this zone.
     
-3.  **Start:** The index of the first LED in this zone (0-indexed).
+4.  **Direction:** Select "Inverted" if the physical wiring of this zone runs backwards relative to your desired visual start point.
     
-4.  **Length:** How many LEDs are in this zone.
-    
-5.  **Direction:** Select "Inverted" if the physical wiring of this zone runs backwards relative to your desired visual start point.
-    
-6.  **Event Assignments:** Below the zone settings, you will see a list of printer states (Idle, Heating, etc.). Every zone listens to all of these states. For each state, use the dropdown to select which Lua script should execute when the printer enters that state. You can also define custom parameters (Brightness, Color, Speed, Size) for each event, which are passed to the Lua script.
+5.  **Event Assignments:** Below the zone settings, you will see a list of printer states (Idle, Heating, etc.). Every zone listens to all of these states. For each state, use the dropdown to select which Lua script should execute when the printer enters that state. You can also define custom parameters (Brightness, Color, Speed, Size) for each event, which are passed to the Lua script.
     
 
 ----------
