@@ -301,6 +301,20 @@ To ensure your custom configurations and Lua scripts are safely preserved across
 
 ----------
 
+## Changelog
+
+[View Changelog here](CHANGELOG.md)
+
+----------
+
+## Roadmap
+
+This is more of an approximation than a definitive roadmap.
+[View the project roadmap here](ROADMAP.md)
+
+----------
+
+
 ## License
 
 This project is licensed under the **GNU General Public License v3.0 (GPLv3)**.
