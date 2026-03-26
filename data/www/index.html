@@ -46,7 +46,7 @@
         label { display: block; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
 
         input[type="text"], input[type="password"], input[type="number"], select {
-            width: 100%; padding: 8px; background: var(--bg); border: 1px solid var(--border); color: #fff; border-radius: 6px; box-sizing: border-box; font-size: 0.9rem;
+            width: 100%; padding: 8px; background: var(--bg); border: 1px solid var(--border); color: var(--accent); border-radius: 6px; box-sizing: border-box; font-size: 0.9rem;
         }
         input:focus { border-color: var(--accent); outline: none; }
 
@@ -71,45 +71,75 @@
         .btn-danger { background: rgba(255,68,68,0.1); color: var(--danger); border: 1px solid var(--danger); }
         .btn-danger:hover { background: var(--danger); color: #fff; }
         .btn-save { background: var(--accent); color: #fff; width: 100%; padding: 15px; font-size: 1rem; margin-top: 20px; box-shadow: 0 4px 15px rgba(255,102,0,0.3); }
-        
+        .btn-logout { background: var(--accent); color: white; border: none; padding: 8px 12px; cursor: pointer; border-radius: 4px; margin: 0px 10px; white-space: nowrap; text-align: center; -webkit-user-select: none; align-items: center; justify-content: center; line-height: 17px; }
+
         .lua-layout { display: grid; grid-template-columns: 280px 1fr; gap: 20px; }
         .file-list { background: var(--panel); border-radius: 8px; border: 1px solid var(--border); height: 773px; overflow-y: auto; }
         .script-item { padding: 10px 15px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 0.9rem; }
-        #editor { width: 100%; height: 430px; background: #0a0a0f; color: #a6accd; border: 1px solid var(--border); border-radius: 8px; padding: 15px; font-family: 'Consolas', monospace; resize: vertical; }
-    .header-left { display: flex; align-items: center; gap: 15px; }
-    .version-tag { font-size: 0.5em; vertical-align: middle; opacity: 0.7; background: #444; padding: 2px 8px; border-radius: 4px; margin-left: 10px; }
-        .btn-reboot { background: #d9534f; color: white; border: none; padding: 8px 12px; cursor: pointer; font-weight: bold; border-radius: 4px; }
+        
+        /* Fallback Editor Styling */
+        #fallback-editor { width: 100%; height: 500px; background: #0a0a0f; color: #a6accd; border: 1px solid var(--border); border-radius: 8px; padding: 15px; font-family: 'Consolas', monospace; resize: vertical; box-sizing: border-box; }
+        
+        .header-left { display: flex; align-items: center; gap: 15px; }
+        .version-tag { font-size: 0.5em; vertical-align: middle; opacity: 0.7; background: #444; padding: 2px 8px; border-radius: 4px; margin-left: 10px; }
+        .btn-reboot { font-family: 'power_symbols'; background: #d9534f; color: white; border: none; padding: 8px 12px; cursor: pointer; font-weight: bold; border-radius: 4px; }
 
-    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-    .modal-content { background: #222; padding: 25px; border-radius: 8px; border: 1px solid #444; max-width: 400px; text-align: center; }
-    .modal-actions { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: #222; padding: 25px; border-radius: 8px; border: 1px solid #444; max-width: 400px; text-align: center; }
+        .modal-actions { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
 
-    .stats-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9rem; }
-    .stats-table tr { border-bottom: 1px solid var(--border); }
-    .stats-table td { padding: 10px 5px; color: var(--text-dim); }
-    .stats-table td:last-child { text-align: right; color: var(--accent); font-family: monospace; font-weight: bold; }
+        .stats-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9rem; }
+        .stats-table tr { border-bottom: 1px solid var(--border); }
+        .stats-table td { padding: 10px 5px; color: var(--text-dim); }
+        .stats-table td:last-child { text-align: right; color: var(--accent); font-family: monospace; font-weight: bold; }
 
-    .info-icon { display: inline-block; width: 14px; height: 14px; line-height: 14px; text-align: center; border-radius: 50%; background: var(--border); color: var(--text-dim); font-size: 0.7rem; cursor: help; margin-left: 5px; }
-    .tooltip { position: relative; display: inline-block; }
-    .tooltip .tooltiptext { visibility: hidden; width: 200px; background-color: #000; color: #fff; text-align: center; border-radius: 6px; padding: 8px; position: absolute; z-index: 1; bottom: 125%; left: 50%; margin-left: -100px; opacity: 0; transition: opacity 0.3s; font-size: 0.75rem; font-weight: normal; line-height: 1.2; border: 1px solid var(--accent); pointer-events: none; }
-    .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+        .info-icon { display: inline-block; width: 14px; height: 14px; line-height: 14px; text-align: center; border-radius: 50%; background: var(--border); color: var(--text-dim); font-size: 0.7rem; cursor: help; margin-left: 5px; }
+        .tooltip { position: relative; display: inline-block; }
+        .tooltip .tooltiptext { visibility: hidden; width: 200px; background-color: #000; color: #fff; text-align: center; border-radius: 6px; padding: 8px; position: absolute; z-index: 1; bottom: 125%; left: 50%; margin-left: -100px; opacity: 0; transition: opacity 0.3s; font-size: 0.75rem; font-weight: normal; line-height: 1.2; border: 1px solid var(--accent); pointer-events: none; }
+        .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
 
-    .text-warning { color: var(--danger) !important; animation: pulse 1s infinite; }
-    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-    .sparkline { stroke: #1a1c25; fill: rgba(255, 102, 0, 0.39); stroke-width: 20; transition: all 0.3s ease; }
+        .text-warning { color: var(--danger) !important; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .sparkline { stroke: #1a1c25; fill: rgba(255, 102, 0, 0.39); stroke-width: 20; transition: all 0.3s ease; }
 
-    .text-warning + .sparkline { stroke: var(--danger); fill: rgba(255, 68, 68, 0.1); }
+        .text-warning + .sparkline { stroke: var(--danger); fill: rgba(255, 68, 68, 0.1); }
 
-    .debug-console{background:#050505;color:#2f2;font-family:Consolas,Monaco,monospace;height:150px;overflow-y:auto;padding:12px;border-radius:8px;border:1px solid var(--border);margin-top:15px;font-size:.8rem;line-height:1.4;white-space:pre-wrap;box-shadow:inset 0 2px 10px rgba(0,0,0,.5)}.console-controls{display:flex;align-items:center;gap:15px;margin-top:10px;font-size:.8rem;color:var(--text-dim);padding:0 5px}.debug-entry{border-bottom:1px solid #1a1a1a;padding:2px 0}.debug-time{color:#666;margin-right:8px;font-size:.7rem}#debug-enabled{accent-color:var(--accent);cursor:pointer;width:16px;height:16px}
+        .debug-console{background:#050505;color:#2f2;font-family:Consolas,Monaco,monospace;height:150px;overflow-y:auto;padding:12px;border-radius:8px;border:1px solid var(--border);margin-top:15px;font-size:.8rem;line-height:1.4;white-space:pre-wrap;box-shadow:inset 0 2px 10px rgba(0,0,0,.5)}.console-controls{display:flex;align-items:center;gap:15px;margin-top:10px;font-size:.8rem;color:var(--text-dim);padding:0 5px}.debug-entry{border-bottom:1px solid #1a1a1a;padding:2px 0}.debug-time{color:#666;margin-right:8px;font-size:.7rem}#debug-enabled{accent-color:var(--accent);cursor:pointer;width:16px;height:16px}
+        
+        #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); display: flex; justify-content: center; align-items: center; z-index: 10000; transition: opacity 0.6s ease, visibility 0.6s ease; }
+        #login-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+        .login-box { background: var(--card); padding: 40px; border-radius: 12px; border: 1px solid var(--border); width: 100%; max-width: 350px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); text-align: center; }
+        .login-box input { margin-bottom: 15px; width: 100%; box-sizing: border-box; }
+        .auth-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        
+        /* Password Strength Meter */
+        .pwd-meter { height: 6px; background: rgba(0,0,0,0.3); border-radius: 3px; margin-top: 8px; overflow: hidden; display: none; }
+        .pwd-fill { height: 100%; width: 0%; transition: width 0.3s ease, background 0.3s ease; }
+        .pwd-feedback { font-size: 0.75rem; color: var(--text-dim); margin-top: 5px; display: none; line-height: 1.2; }
+        .pwd-weak { background: var(--danger); width: 25%; }
+        .pwd-fair { background: #ffaa00; width: 50%; }
+        .pwd-good { background: #ffee00; width: 75%; }
+        .pwd-strong { background: var(--success); width: 100%; }
+
+    @font-face { 
+        font-family: 'power_symbols'; 
+        src: url(data:application/font-woff2;charset=utf-8;base64,d09GMgABAAAAAANQAAoAAAAABrgAAAMEAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAABmAAglIKhGyECAsOAAE2AiQDDgQgBYFPB38bjwXIHgfV7R3GNyxRxDDdFzEiCOaqqpNMNnvASAqe0UgAEO7V0fV2796P3WVSiSXod4FKVgL7uKjg+sAPVTFarV6/nw9/Ob618YA+gL+bg9PAxqZEs8iyuW2LJ5RTRi1uO/iOqHUq1fQIWSGuQUlW6lm6D6KJPDn93pqkBolSOdmo5hbT1kRXwDA6ztNf83yNzwtyBKi5GUjJrFH2eyZJBRrJdEOhkEDL5x3n/b+Alk+8kV/yb97p7AeMnPpvclAJ5XiLaAbIQEgkQkiyKl0qt65StVqlOHiwqfmUgPwYOUxjZccp4213jC9cun7zAxz7kVSMqmgeO87lvHltfIGAYx84fevYD/IRJYcdz10+xI5TzaXj9DAJ2THC+AL1dfJnWmWSXCAIooMkMQgQZc530JVeVJBsF0M0QuXqNwTsH4g6iMgpaoZlNQpV7l/agp9k35f+IJiuXvu6OepmVMF29dbXzcNhFNbYoWVv72VlB50Mnp3dpMfB0nXB5n+LRs9qrWtocN16tz/4v3+Dzy0K7v9XOxD87uM40iq2v43KPMlxw8O1x8zSnG56OzC7M6vzgJnYeqBe0Mws6LViMCOyGA0Uo0hq66hIhPyc3zkxi36fLbl9FHVUib+zjSv/dGD4xXPozJmTna0qORp1VAKlUNKD7brQ3O+GrK2NgMVLIiHvNhLhA7rnbRcFvfv2/GiyUb3TM7CTy9WORjNOd2PRLc2HfVzTYLSjhktHE9q67cqYfPX6jEYSNvwB6PjgtQTbjYe2EyhQPtwOBIIPbqTd41UH/V9ULMCXZ6qf2J28qOyLAgoJCIAMxedht4IhgvoJUcAdvdLRUdVMgdwgCUgQAsMAVHJHgBAIkMiFACnKBMhEQEoqKjblqCkVWbmQIJKopDZJ0dzMJKSkjpYNOfpvm+Msq51mzfbr0s02k622ynq7beaoOd9kh53W22qLZrrroptk1C3IiSTSyKIUeaW9Vbt/vDW1wU2pKV6pMTFJ3sJTWGtnr+AeJKa33FITGZ8RmRQNAAA=) format('woff2');
+        unicode-range: U+23FB-23FE, U+2B58;
+    }
     </style>
     <script src="/untar.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/mode-lua.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/theme-monokai.min.js"></script>
-    <script src="https://unpkg.com/@fnando/sparkline/dist/sparkline.js"></script>
 </head>
 <body>
-
+<div id="login-overlay">
+    <div class="login-box">
+        <h2 style="color:var(--accent); margin-bottom: 20px; letter-spacing: 2px;">LUMENRAKER</h2>
+        <form id="login-form" onsubmit="handleLogin(event)">
+            <input type="text" id="login-user" placeholder="Username" required autocomplete="username">
+            <input type="password" id="login-pass" placeholder="Password" required autocomplete="current-password">
+            <button type="submit" class="btn-save" id="login-btn" style="width: 100%;">LOGIN</button>
+        </form>
+    </div>
+</div>
 <div id="toast-container"></div>
 
 <div class="container">
@@ -117,9 +147,7 @@
         <div class="header-left">
             <img src="/logo.webp" width="33"/><h1>LUMENRAKER <span id="app-version" class="version-tag">v0.0.0</span></h1>
         </div>
-        <div style=""><button class="btn-reboot" onclick="showRebootModal()">
-             REBOOT
-        </button></div>
+        <div><button class="btn-reboot" onclick="showRebootModal()">&#x23FB;</button><button onclick="handleLogout()" style="/*! margin: 0px 10px; */" class="btn-logout">➜]</button></div>
     </header>   
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('sys')">CONNECTION</button>
@@ -146,6 +174,16 @@
                 <input class="slider-val" type="number" step="1" min="0" max="255" oninput="this.previousElementSibling.value=this.value;">
             </div>
         </div>
+        <div class="card">
+            <h3>MQTT & Home Assistant</h3>
+            <p style="font-size:0.8rem; color:var(--text-dim); margin-bottom:15px;">Enable Auto-Discovery for Home Assistant, Alexa, and Hue. Leave Host blank to disable the module entirely.</p>
+            <div class="card-grid">
+                <div class="form-group"><label>Broker IP</label><input type="text" id="mqttHost" placeholder="e.g. 192.168.1.50 (Blank to disable)"></div>
+                <div class="form-group"><label>Port</label><input type="number" min="1" max="65000" id="mqttPort" value="1883"></div>
+                <div class="form-group"><label>Username</label><input type="text" id="mqttUser" placeholder="(Optional)"></div>
+                <div class="form-group"><label>Password</label><input type="password" id="mqttPass" placeholder="(Optional)"></div>
+            </div>
+        </div>
         <button class="btn-save" onclick="saveSystemConfig()">APPLY SYSTEM SETTINGS</button>
     </div>
 
@@ -169,7 +207,12 @@
             </div>
             <div>
                 <input type="text" id="script-name" placeholder="filename" style="margin-bottom:10px;" autocomplete="off">
-        <div id="lua-editor" style="height: 500px; width: 100%; border-radius: 8px; font-size: 14px;"></div>
+                
+                <div id="editor-container" style="position: relative; width: 100%;">
+                    <div id="lua-editor" style="height: 500px; width: 100%; border-radius: 8px; font-size: 14px; display: none;"></div>
+                    <textarea id="fallback-editor" spellcheck="false" placeholder="-- Your code goes here"></textarea>
+                </div>
+                
                 <button class="btn-save" onclick="saveScript()">SAVE EFFECT</button>
                 <div class="console-controls">
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
@@ -224,6 +267,30 @@
             </table>
         </div>
         <div class="card">
+            <div class="auth-header">
+                <h3>System Authentication</h3>
+            </div>    
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="sec-user" value="admin">
+            </div>
+            <div class="form-group">
+                <label>Current Password</label>
+                <input type="password" id="sec-old-pass" placeholder="(Leave empty if not set)">
+            </div>
+            <div class="form-group">
+                <label>New Password</label>
+                <input type="password" id="sec-new-pass" placeholder="(Leave empty to disable authentication)" oninput="checkPasswordStrength()">
+                <div class="pwd-meter" id="pwd-meter"><div class="pwd-fill" id="pwd-fill"></div></div>
+                <div class="pwd-feedback" id="pwd-feedback"></div>
+            </div>
+            <div class="form-group">
+                <label>Confirm New Password</label>
+                <input type="password" id="sec-new-pass-confirm" placeholder="Repeat New Password">
+            </div>
+            <button class="btn-save" onclick="updateSecurity()">Save Credentials</button>
+        </div>
+        <div class="card">
             <h3>System Update</h3>
             <p>Update firmware, UI, and effects from the official repository.</p>
             <button class="btn-save" id="install-btn" onclick="fetchInstaller()">Install latest firmware</button>
@@ -265,13 +332,81 @@
         </div>
     </div>
 </div>
+
 <script>
-    let editor;
+    let editor = null; // Stays null if Ace fails to load
     let warningThrottles = { ram: false, fs: false };
     let heapHistory = [];
     const MAX_HISTORY = 180;
     let debugInterval = null;
     let lastDebugMsg = "";
+    
+    // --- DYNAMIC LIBRARY LOADER ---
+    function loadExternalScript(url) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = url;
+            script.async = true; 
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    async function loadOptionalLibraries() {
+        try {
+            // Non-blocking load for sparkline
+            loadExternalScript("https://unpkg.com/@fnando/sparkline/dist/sparkline.js").catch(e => console.warn("Sparkline unavailable in AP mode."));
+            
+            // Sequential load for Ace Editor
+            await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.js");
+            await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/mode-lua.min.js");
+            await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/theme-monokai.min.js");
+            
+            // Initialize Ace if scripts loaded successfully
+            document.getElementById('fallback-editor').style.display = 'none';
+            document.getElementById('lua-editor').style.display = 'block';
+            
+            editor = ace.edit("lua-editor");
+            editor.setTheme("ace/theme/monokai");
+            editor.session.setMode("ace/mode/lua");
+            editor.setOptions({
+                enableBasicAutocompletion: true,
+                useSoftTabs: true,
+                tabSize: 2,
+                showPrintMargin: false,
+                fontSize: "14px"
+            });
+            
+            // Transfer text if user was using fallback while loading
+            const fallbackText = document.getElementById('fallback-editor').value;
+            if (fallbackText) editor.setValue(fallbackText, -1);
+            
+        } catch (error) {
+            console.warn("Offline/AP Mode detected: Utilizing native textarea fallback.");
+        }
+    }
+    
+    // Execute loader immediately
+    loadOptionalLibraries();
+
+    // Editor Helper Functions
+    function setEditorContent(text) {
+        if (editor) {
+            editor.setValue(text, -1);
+        } else {
+            document.getElementById('fallback-editor').value = text;
+        }
+    }
+
+    function getEditorContent() {
+        if (editor) {
+            return editor.getValue();
+        } else {
+            return document.getElementById('fallback-editor').value;
+        }
+    }
+
     class TarBuilder {
         constructor() { this.buffers = []; }
 
@@ -294,9 +429,9 @@
             writeString(Math.floor(Date.now() / 1000).toString(8).padStart(11, '0') + '\0', 12);        
             const chksumOffset = offset;
             writeString("        ", 8);                      // checksum placeholder
-            writeString("0", 1);                             // typeflag (0 = regular file)
-            writeString("ustar\0", 6);                       // magic
-            writeString("00", 2);                            // version
+            writeString("0", 1);                              // typeflag (0 = regular file)
+            writeString("ustar\0", 6);                        // magic
+            writeString("00", 2);                             // version
 
             let chksum = 0;
             for (let i = 0; i < 512; i++) chksum += header[i];
@@ -315,19 +450,178 @@
             return new Blob(this.buffers, { type: 'application/x-tar' });
         }
     }
-    document.addEventListener('DOMContentLoaded', () => {
-        editor = ace.edit("lua-editor");
-        editor.setTheme("ace/theme/monokai");
-        editor.session.setMode("ace/mode/lua");
+
+const originalFetch = window.fetch;
+    window.fetch = async function() {
+        const response = await originalFetch.apply(this, arguments);
+        if (response.status === 401 && !arguments[0].includes('login')) {
+            document.getElementById('login-overlay').classList.remove('hidden');
+            throw new Error("Unauthorized");
+        }
+        return response;
+    };
+
+    async function handleLogin(e) {
+        e.preventDefault();
+        const btn = document.getElementById('login-btn');
+        btn.innerText = "AUTHENTICATING...";
     
-        editor.setOptions({
-            enableBasicAutocompletion: true,
-            useSoftTabs: true,
-            tabSize: 2,
-            showPrintMargin: false,
-            fontSize: "14px"
+        const formData = new URLSearchParams();
+        formData.append('user', document.getElementById('login-user').value);
+        formData.append('pass', document.getElementById('login-pass').value);
+
+        try {
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData
+            });
+
+            if (res.ok) {
+                document.getElementById('login-overlay').classList.add('hidden');
+		init();
+            } else {
+                showToast("Invalid Credentials", "error");
+            }
+        } catch (err) {}
+        btn.innerText = "LOGIN";
+    }
+
+    async function handleLogout() {
+        try {
+            await fetch('/api/logout', { method: 'POST' });
+        } catch (e) {
+            window.location.reload(); 
+        }
+    }
+
+    function splitStripIntoZones(stripIdx) {
+        const strip = sysConfig.strips[stripIdx];
+    
+        let lastPixel = 0;
+        let templateZone = null;
+
+        sysConfig.zones.forEach(z => {
+            if (z.sIdx === stripIdx) {
+                const end = z.start + z.len;
+                if (end >= lastPixel) {
+                    lastPixel = end;
+                    templateZone = z; 
+                }
+            }
         });
-    });
+
+        const remaining = strip.cnt - lastPixel;
+        if (remaining <= 0) {
+            return showToast("No physical LEDs remaining on this strip to split!", "error");
+        }
+
+        let clonedEvts;
+        let clonedRev = false;
+
+        if (templateZone) {
+            clonedEvts = JSON.parse(JSON.stringify(templateZone.evts));
+            clonedRev = templateZone.rev;
+        } else {
+            clonedEvts = Array.from({length: 7}, () => ({ 
+                fx: "Solid", r: 255, g: 255, b: 255, sp: 255, sz: 255, dl: 255, br: 255 
+            }));
+        }
+
+        sysConfig.zones.push({
+            sIdx: stripIdx,
+            start: lastPixel,
+            len: remaining,
+            rev: clonedRev,
+            evts: clonedEvts
+        });
+
+        const templateInfo = templateZone ? `Cloned from Zone ${sysConfig.zones.indexOf(templateZone)}` : "Default config used";
+        showToast(`Strip ${stripIdx} sliced at ${lastPixel}. ${templateInfo}`, "success");
+        
+        renderStrips();
+        renderZones();
+        switchTab('zones');
+    }
+
+    // --- PASSWORD STRENGTH METER ---
+    function checkPasswordStrength() {
+        const pwd = document.getElementById('sec-new-pass').value;
+        const meter = document.getElementById('pwd-meter');
+        const fill = document.getElementById('pwd-fill');
+        const feedback = document.getElementById('pwd-feedback');
+
+        if (pwd.length === 0) {
+            meter.style.display = 'none';
+            feedback.style.display = 'none';
+            return;
+        }
+
+        meter.style.display = 'block';
+        feedback.style.display = 'block';
+
+        let score = 0;
+        let tips = [];
+
+        if (pwd.length >= 8) score++;
+        else tips.push("minimum 8 chars");
+
+        if (/[A-Z]/.test(pwd) && /[a-z]/.test(pwd)) score++;
+        else tips.push("mix upper/lowercase");
+
+        if (/[0-9]/.test(pwd)) score++;
+        else tips.push("add a number");
+
+        if (/[^A-Za-z0-9]/.test(pwd)) score++;
+        else tips.push("add a symbol");
+
+        fill.className = 'pwd-fill'; // reset all extra classes
+        
+        if (score <= 1) {
+            fill.classList.add('pwd-weak');
+            feedback.innerHTML = "Strength: <b style='color:var(--danger)'>Weak</b>. " + (tips.length ? "Tip: " + tips.join(", ") : "");
+        } else if (score === 2) {
+            fill.classList.add('pwd-fair');
+            feedback.innerHTML = "Strength: <b style='color:#ffaa00'>Fair</b>. " + (tips.length ? "Tip: " + tips.join(", ") : "");
+        } else if (score === 3) {
+            fill.classList.add('pwd-good');
+            feedback.innerHTML = "Strength: <b style='color:#ffee00'>Good</b>. " + (tips.length ? "Tip: " + tips.join(", ") : "");
+        } else {
+            fill.classList.add('pwd-strong');
+            feedback.innerHTML = "Strength: <b style='color:var(--success)'>Strong</b>.";
+        }
+    }
+
+    async function updateSecurity() {
+        const oldPass = document.getElementById('sec-old-pass').value;
+        const newPass = document.getElementById('sec-new-pass').value;
+        const newPassConfirm = document.getElementById('sec-new-pass-confirm').value;
+        const newUser = document.getElementById('sec-user').value;
+
+        // Check if new passwords match before submitting
+        if (newPass !== newPassConfirm) {
+            return showToast("New passwords do not match!", "error");
+        }
+
+        const formData = new URLSearchParams();
+        formData.append('old_pass', oldPass);
+        formData.append('new_pass', newPass);
+        formData.append('new_user', newUser);
+
+        const res = await fetch('/api/change_password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData
+        });
+
+        if (res.ok) {
+            showToast("Security Updated. Please log in again.", "info");
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            const err = await res.json();
+            showToast(err.error || "Update Failed", "error");
+        }
+    }
 
     async function exportBackup() {
         const exportConfig = document.getElementById('export-config').checked;
@@ -373,7 +667,7 @@
             }
 
             const blob = tar.getBlob();
-            const dateStr = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+            const dateStr = new Date().toISOString().split('T')[0];
             const url = URL.createObjectURL(blob);
         
             const a = document.createElement('a');
@@ -418,8 +712,9 @@
             heapHistory.push(ramUsed);
             if (heapHistory.length > MAX_HISTORY) heapHistory.shift();
 
+            // Safely update sparkline if loaded
             const sparkElement = document.querySelector(".sparkline");
-            if (typeof sparkline !== 'undefined') {
+            if (typeof sparkline !== 'undefined' && sparkline.sparkline) {
                 sparkline.sparkline(sparkElement, heapHistory);
             }
 
@@ -521,7 +816,12 @@
     let sysConfig = { strips: [], zones: [] };
     let availableScripts = ["Solid"];
 
-    async function init() { await getVer(); await loadScriptsList(); await loadConfig(); updateSysStats(); setInterval(updateSysStats, 3000); }
+    async function init() { 
+        await getVer(); 
+        await loadScriptsList(); 
+        await loadConfig(); 
+        setInterval(updateSysStats, 3000); 
+    }
 
     async function loadScriptsList() {
         try {
@@ -542,31 +842,67 @@
             document.getElementById('mPort').value = sysConfig.mPort || 7125;
             document.getElementById('br').value = sysConfig.br || 128;
             document.querySelector('#br + .slider-val').value = sysConfig.br || 128;
+            document.getElementById('mqttHost').value = sysConfig.mqttHost || '';
+            document.getElementById('mqttPort').value = sysConfig.mqttPort || 1883;
+            document.getElementById('mqttUser').value = sysConfig.mqttUser || '';
+            document.getElementById('mqttPass').value = sysConfig.mqttPass || '';
             renderStrips(); renderZones();
         } catch (e) { console.error(e); }
     }
 
     function renderStrips() {
         const container = document.getElementById('strips-container');
-        container.innerHTML = sysConfig.strips.map((s, i) => `
-            <div class="card">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <h3>Strip #${i}</h3>
-                    <button class="btn-danger" 
-                        style="padding:4px 10px; ${i === 0 ? 'opacity: 0.5; cursor: not-allowed;' : ''}" 
-                        ${i === 0 ? 'disabled' : ''} 
-                        onclick="removeStrip(${i})">
-                        Delete
-                    </button>
+    
+        container.innerHTML = sysConfig.strips.map((s, i) => {
+            const zonesOnThisStrip = sysConfig.zones.filter(z => z.sIdx === i);
+            const totalLeds = s.cnt || 1;
+        
+            return `
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <h3>Physical Strip #${i}</h3>
+                        <button class="btn-danger" style="padding:4px 10px;" onclick="removeStrip(${i})">Delete</button>
+                    </div>
+                
+                    <div style="height:12px; background:#111; border-radius:4px; margin-bottom:15px; display:flex; overflow:hidden; border:1px solid var(--border);">
+                        ${zonesOnThisStrip.map(z => `
+                            <div style="width:${(z.len/totalLeds)*100}%; background:var(--accent); border-right:1px solid #000; height:100%;" 
+                                 title="Zone ${sysConfig.zones.indexOf(z)}: ${z.len} LEDs"></div>
+                        `).join('')}
+                    </div>
+
+                    <div class="card-grid">
+                        <div class="form-group"><label>Output GPIO</label><input type="number" value="${s.pin}" onchange="sysConfig.strips[${i}].pin=parseInt(this.value)"></div>
+                        <div class="form-group"><label>Total Physical LEDs</label><input type="number" value="${s.cnt}" onchange="sysConfig.strips[${i}].cnt=parseInt(this.value); renderStrips();"></div>
+                    </div>
+                    <button class="btn-add" style="margin-top:15px; width:100%; background:var(--panel); border:1px dashed var(--accent);" onclick="splitStripIntoZones(${i})">✂ SPLIT STRIP INTO NEW ZONE</button>
                 </div>
-                <div class="card-grid">
-                    <div class="form-group"><label>GPIO</label><input type="number" min="0" max="39" value="${s.pin}" onchange="sysConfig.strips[${i}].pin=parseInt(this.value)"></div>
-                    <div class="form-group"><label>LEDs</label><input type="number" min="0" max="64000" value="${s.cnt}" onchange="sysConfig.strips[${i}].cnt=parseInt(this.value)"></div>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
+    function autoAlignZone(idx) {
+        const stripIdx = sysConfig.zones[idx].sIdx;
+
+        if (idx === 0) {
+            sysConfig.zones[idx].start = 0;
+        } else {
+            const prev = sysConfig.zones[idx - 1];
+            
+            if (prev.sIdx === stripIdx) {
+                sysConfig.zones[idx].start = prev.start + prev.len;
+            } else {
+                sysConfig.zones[idx].start = 0;
+            }
+        }
+
+        // 3. Trigger the splitting logic for this strip
+        // This will automatically create a new zone for any unallocated pixels
+        splitStripIntoZones(stripIdx);
+
+        // Note: renderZones() and renderStrips() are called inside splitStripIntoZones
+        showToast(`Zone ${idx} aligned and strip ${stripIdx} sliced.`, "success");
+    }
     function renderZones() {
         const container = document.getElementById('zones-container');
         const scriptOptions = availableScripts.map(s => `<option value="${s}">${s}</option>`).join('');
@@ -583,8 +919,9 @@
                     </button>
                 </div>
                 <div class="card-grid" style="margin-bottom:15px;">
-                    <div class="form-group"><label>Start Pixel Index</label><input type="number" min="0" value="${z.start}" onchange="sysConfig.zones[${i}].start=parseInt(this.value)"></div>
-                    <div class="form-group"><label>Length</label><input type="number" min="1" value="${z.len}" onchange="sysConfig.zones[${i}].len=parseInt(this.value)"></div>
+                    <div class="form-group"><label>Start Pixel Index <button onclick="autoAlignZone(${i})" style="padding:0 10px; background:var(--accent); font-size:10px;">Auto</button></label><input type="number" min="0" value="${z.start}" onchange="sysConfig.zones[${i}].start=parseInt(this.value); renderStrips();"></div>
+                    <div class="form-group"><label>Length</label><input type="number" min="1" value="${z.len}" onchange="sysConfig.zones[${i}].len=parseInt(this.value); renderStrips();"></div>
+
                     <div class="form-group"><label>Direction</label>
                         <select onchange="sysConfig.zones[${i}].rev=(this.value==='true')">
                             <option value="false" ${!z.rev ? 'selected' : ''}>Normal</option>
@@ -619,6 +956,7 @@
                 </div>
             </div>
         `).join('');
+        renderStrips();
     }
 
     function renderSlider(zIdx, eIdx, key, label, val, mini = false) {
@@ -636,19 +974,20 @@
 
     async function loadScriptContent(name) {
         const res = await fetch(`/api/read_script?name=${name.replace('.lua','')}`);
-        editor.setValue(await res.text(), -1);
+        const text = await res.text();
+        setEditorContent(text);
         document.getElementById('script-name').value = name.replace('.lua','');
     }
 
     function newScript() {
         document.getElementById('script-name').value = '';
-        document.getElementById('editor').value = '-- New Lua Effect\nlocal count = get_count()\nfor i=0, count-1 do\n    set_rgb(i, 255, 255, 255)\nend';
+        setEditorContent('-- New Lua Effect\nlocal count = get_count()\nfor i=0, count-1 do\n    set_rgb(i, 255, 255, 255)\nend');
         showToast("Editor ready for new script", "info");
     }
 
     async function saveScript() {
         const name = document.getElementById('script-name').value;
-        const code = editor.getValue();
+        const code = getEditorContent();
         if (!name) return showToast("Filename is required!", "error");
         
         showToast("Saving, Please wait ...", "info");
@@ -718,7 +1057,6 @@
     function removeStrip(idx) { sysConfig.strips.splice(idx, 1); renderStrips(); }
     
     function addZone() { 
-        // sIdx is kept internally for backend legacy struct support but removed from UI
         sysConfig.zones.push({ sIdx: 0, start: 0, len: 60, rev: false, 
             evts: Array.from({length: 6}, () => ({ fx: "Solid", r: 255, g: 255, b: 255, sp: 255, sz: 255, dl: 255, br: 255 })) 
         }); 
@@ -732,6 +1070,10 @@
         sysConfig.mHost = document.getElementById('mHost').value;
         sysConfig.mPort = parseInt(document.getElementById('mPort').value);
         sysConfig.br = parseInt(document.getElementById('br').value);
+        sysConfig.mqttHost = document.getElementById('mqttHost').value;
+        sysConfig.mqttPort = parseInt(document.getElementById('mqttPort').value);
+        sysConfig.mqttUser = document.getElementById('mqttUser').value;
+        sysConfig.mqttPass = document.getElementById('mqttPass').value;
         const res = await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sysConfig) });
         if (res.ok) {
             showToast("Settings synchronized successfully.", "success");
@@ -739,6 +1081,7 @@
             showToast("Failed to save settings.", "error");
         }
     }
+    
     async function fetchInstaller() {
         const btn = document.getElementById('install-btn');
         const log = document.getElementById('install-progress');
@@ -746,11 +1089,8 @@
         log.innerText = "Fetching installer script...";
 
         try {
-                // 1. Fetch the remote JS installer
                 const response = await fetch('https://cdn.jsdelivr.net/gh/BesbesCat/lumenraker@master/installer.js');
                 const scriptText = await response.text();
-
-                // 2. Execute it
                 const installer = new Function(scriptText);
                 await installer(); 
         } catch (e) {
@@ -772,8 +1112,6 @@
         const file = fileInput.files[0];
         status.innerText = "Reading local file...";
         const arrayBuffer = await file.arrayBuffer();
-    
-        // Run the installer using the local buffer
         processInstaller(arrayBuffer);
     }
 
@@ -790,7 +1128,8 @@
                 if (file.name === 'config.json' || file.name === '/config.json') {
                     const decoder = new TextDecoder();
                     extractedConfig = decoder.decode(file.buffer);
-                    continue;                }
+                    continue;                
+                }
 
                 status.innerText = `Installing: ${file.name}`;
             
@@ -881,6 +1220,14 @@
             document.getElementById('app-version').innerText = `v${data.version}`;
         } catch (e) { console.error("Could not fetch version"); }
     }
+    async function checkAuth() {
+        try {
+            const resp = await fetch('/api/version');
+            const data = await resp.json();
+            init();
+            document.getElementById('login-overlay').classList.add('hidden');
+        } catch (e) {  }
+    }
 
     function showRebootModal() { document.getElementById('reboot-modal').style.display = 'flex'; }
     function hideRebootModal() { document.getElementById('reboot-modal').style.display = 'none'; }
@@ -889,12 +1236,12 @@
         document.querySelector('.modal-content').innerHTML = "<h2>Rebooting...</h2><p>Connection will be lost.</p>";
         try {
             await fetch('/api/reboot', { method: 'POST' });
-        } catch (e) { /* Expected fetch error during reboot */ }
+        } catch (e) {}
     
         setTimeout(() => { window.location.reload(); }, 6000);
     }
+    window.onload = checkAuth;
 
-    window.onload = init;
 </script>
 </body>
 </html>

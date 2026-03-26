@@ -118,7 +118,6 @@ void ledTask(void* pv) {
 
     while(true) {
         bool showNeeded = false;
-        if (L_VM) { lua_gc(L_VM, LUA_GCSTEP, 2); }
 
         for (int i = 0; i < config.zoneCount; i++) {
             Zone &z = config.zones[i];
@@ -170,22 +169,22 @@ void ledTask(void* pv) {
                 }
             }
 
-            float masterBrightness = config.brightness / 255.0f;
+            uint16_t masterBrightness = config.brightness + 1;
             
             for (int i = 0; i < config.stripCount; i++) {
                 if (hwStrips[i]) {
                     for (int j = 0; j < config.strips[i].count; j++) {
                         RgbColor hwColor(
-                            stripBuffers[i][j].r * masterBrightness,
-                            stripBuffers[i][j].g * masterBrightness,
-                            stripBuffers[i][j].b * masterBrightness
+                            (stripBuffers[i][j].r * masterBrightness) >> 8,
+                            (stripBuffers[i][j].g * masterBrightness) >> 8,
+                            (stripBuffers[i][j].b * masterBrightness) >> 8
                         );
                         hwStrips[i]->SetPixelColor(j, hwColor);
                     }
                     hwStrips[i]->Show();
-                    frameCount++;
                 }
             }
+            frameCount++;
         }
         
         unsigned long currentMillis = millis();
@@ -193,6 +192,7 @@ void ledTask(void* pv) {
             currentFPS = frameCount;
             frameCount = 0;
             lastFpsTime = currentMillis;
+            if (L_VM) { lua_gc(L_VM, LUA_GCSTEP, 10); }
         }
         taskYIELD();
     }

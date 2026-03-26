@@ -3,7 +3,7 @@
 
 #define MAX_STRIPS 10
 
-const String LUMEN_VERSION = "0.0.5-alpha";
+const String LUMEN_VERSION = "0.0.6-alpha";
 
 enum EventType { EVT_IDLE, EVT_PRINTING, EVT_HEATING, EVT_HEATING_EXTRUDER, EVT_HOMING, EVT_ERROR, EVT_SHUTDOWN, EVT_COUNT };
 extern const char* const EventNames[];
@@ -36,6 +36,13 @@ struct Config {
   char wifiSSID[32]; char wifiPASS[64];
   char moonrakerHost[64]; int moonrakerPort;
   int brightness;
+  char webUser[32];
+  char webPass[65];
+  
+  char mqttHost[64];
+  int mqttPort;
+  char mqttUser[32];
+  char mqttPass[64];
   
   int stripCount;
   Strip strips[MAX_STRIPS];

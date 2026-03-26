@@ -1,8 +1,8 @@
-#include "lua_engine.h"
 #include <lualib.h>
 #include <lauxlib.h>
-#include "config.h"
 #include <LittleFS.h>
+#include "config.h"
+#include "lua_engine.h"
 
 extern char lastMoonrakerJson[1024];
 extern volatile EventType currentEvent;
@@ -21,12 +21,12 @@ extern String lastLuaDebug = "";
 static int* last_bound_script = nullptr;
 static EventType* last_event = nullptr;
 
-int l_get_count(lua_State* L) {
+int IRAM_ATTR l_get_count(lua_State* L) {
     lua_pushinteger(L, universeMap ? currentCount : 0);
     return 1;
 }
 
-int l_clear(lua_State* L) {
+int IRAM_ATTR l_clear(lua_State* L) {
     if (!universeMap || currentCount == 0) return 0;
     for (int i = 0; i < currentCount; i++) {
         uint16_t global_i = currentZoneStart + i;
@@ -39,23 +39,43 @@ int l_clear(lua_State* L) {
 
 int l_set_hsv(lua_State* L) {
     if (!universeMap) return 0;
-    int i = luaL_checkinteger(L, 1);
-    float h = luaL_checkinteger(L, 2) / 255.0f;
-    float s = luaL_checkinteger(L, 3) / 255.0f;
-    float v = luaL_checkinteger(L, 4) / 255.0f;
-
+    int i = lua_tointeger(L, 1);
     if (currentReversed) i = (currentCount - 1) - i;
     
     uint16_t global_i = currentZoneStart + i;
     if (global_i < totalUniverseLeds) {
-        HsbColor hsb(h, s, v);
-        RgbColor rgb(hsb);
-        *(universeMap[global_i]) = CRGB(rgb.R, rgb.G, rgb.B);
-    }
+        
+        uint8_t h = lua_tointeger(L, 2) & 255; 
+        uint8_t s = lua_tointeger(L, 3) & 255;
+        uint8_t v = lua_tointeger(L, 4) & 255;
+
+        uint8_t r = 0, g = 0, b = 0;
+
+        if (s == 0) {
+            r = g = b = v;
+        } else {
+            uint8_t region = h / 43;
+            uint8_t remainder = (h - (region * 43)) * 6; 
+            
+            uint8_t p = (v * (255 - s)) >> 8;
+            uint8_t q = (v * (255 - ((s * remainder) >> 8))) >> 8;
+            uint8_t t = (v * (255 - ((s * (255 - remainder)) >> 8))) >> 8;
+
+            switch (region) {
+                case 0: r = v; g = t; b = p; break;
+                case 1: r = q; g = v; b = p; break;
+                case 2: r = p; g = v; b = t; break;
+                case 3: r = p; g = q; b = v; break;
+                case 4: r = t; g = p; b = v; break;
+                default: r = v; g = p; b = q; break;
+            }
+        }
+        *(universeMap[global_i]) = CRGB(r, g, b);
+    } 
     return 0;
 }
 
-int l_set_rgb(lua_State* L) {
+int IRAM_ATTR l_set_rgb(lua_State* L) {
     if (!universeMap) return 0;
     int i = luaL_checkinteger(L, 1);
     if (currentReversed) i = (currentCount - 1) - i;
@@ -71,7 +91,7 @@ int l_set_rgb(lua_State* L) {
     return 0;
 }
 
-int l_fade(lua_State* L) {
+int IRAM_ATTR l_fade(lua_State* L) {
     if (!universeMap || currentCount == 0) return 0;
     uint16_t fadeAmount = luaL_checkinteger(L, 1); 
     
@@ -94,7 +114,7 @@ int l_debug_log(lua_State* L) {
     return 0;
 }
 
-int l_millis(lua_State* L) {
+int IRAM_ATTR l_millis(lua_State* L) {
     lua_pushinteger(L, millis());
     return 1;
 }
@@ -124,14 +144,14 @@ int l_klipper_index(lua_State* L) {
     return 1;
 }
 
-int l_klipper_pos(lua_State* L) {
+int IRAM_ATTR l_klipper_pos(lua_State* L) {
     int idx = luaL_checkinteger(L, 1);
     if (idx >= 1 && idx <= 16) lua_pushnumber(L, progress[idx - 1]);
     else lua_pushnumber(L, 0.0);
     return 1;
 }
 
-int l_get_json(lua_State* L) {
+int IRAM_ATTR l_get_json(lua_State* L) {
     lua_pushstring(L, lastMoonrakerJson);
     return 1;
 }
