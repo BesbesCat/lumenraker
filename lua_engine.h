@@ -15,3 +15,5 @@ extern uint16_t currentCount;
 extern bool currentReversed;
 
 void register_lua_hooks(lua_State* L);
+bool compileLuaScript(const char* srcPath, const char* dstPath);
+void checkAndCompileAllScripts();

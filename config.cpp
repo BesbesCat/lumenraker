@@ -18,6 +18,8 @@ void defaultConfig() {
   strcpy(config.moonrakerHost, "192.168.1.100");
   config.moonrakerPort = 7125;
   config.brightness = 128;
+  config.fadeDurationMs = 750;
+  config.colorTempK = 6500;
 
   strcpy(config.webUser, "admin");
   memset(config.webPass, 0, sizeof(config.webPass));
@@ -78,6 +80,8 @@ void loadConfig() {
   prefs.getBytes("mqttPass", config.mqttPass, 64);
 
   config.brightness = prefs.getInt("br", 128);
+  config.fadeDurationMs = prefs.getInt("fadeDur", 750);
+  config.colorTempK = prefs.getInt("colTemp", 6500);
   config.stripCount = prefs.getInt("sCnt", 1);
   config.zoneCount = prefs.getInt("zCnt", 1);
 
@@ -105,6 +109,8 @@ void saveConfig() {
   prefs.putBytes("mHost", config.moonrakerHost, 64);
   prefs.putInt("mPort", config.moonrakerPort);
   prefs.putInt("br", config.brightness);
+  prefs.putInt("fadeDur", config.fadeDurationMs);
+  prefs.putInt("colTemp", config.colorTempK);
   prefs.putBytes("webUser", config.webUser, 32);
   prefs.putBytes("webPass", config.webPass, 65);
   

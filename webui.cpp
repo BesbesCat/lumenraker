@@ -6,6 +6,7 @@
 #include <esp_system.h>
 #include <mbedtls/md.h>
 #include "config.h"
+#include "lua_engine.h"
 
 AsyncWebServer server(80);
 static File uploadFile;
@@ -76,6 +77,8 @@ void handleGetConfig(AsyncWebServerRequest *request) {
     doc["mHost"] = config.moonrakerHost;
     doc["mPort"] = config.moonrakerPort;
     doc["br"] = config.brightness;
+    doc["fadeDurationMs"] = config.fadeDurationMs;
+    doc["colorTempK"] = config.colorTempK;
     doc["webUser"] = config.webUser;
     doc["mqttHost"] = config.mqttHost;
     doc["mqttPort"] = config.mqttPort;
@@ -131,6 +134,8 @@ void handleSaveConfig(AsyncWebServerRequest *request, uint8_t *data, size_t len,
             strlcpy(config.moonrakerHost, doc["mHost"] | "192.168.1.100", sizeof(config.moonrakerHost));
             config.moonrakerPort = doc["mPort"] | 7125;
             config.brightness = doc["br"] | 128;
+            config.fadeDurationMs = doc["fadeDurationMs"] | 1000;
+            config.colorTempK = doc["colorTempK"] | 6500;
             if(doc.containsKey("webUser")) strlcpy(config.webUser, doc["webUser"], sizeof(config.webUser));
             
             strlcpy(config.mqttHost, doc["mqttHost"] | "", sizeof(config.mqttHost));
@@ -250,6 +255,19 @@ void handleSurgicalWrite(AsyncWebServerRequest *request, uint8_t *data, size_t l
         if (surgicalFile) {
             surgicalFile.close();
             Serial.println("[Surgical] File written and closed successfully.");
+                if (request->hasHeader("X-Dest-Path")) {
+                String path = request->getHeader("X-Dest-Path")->value();
+                
+                if (path.startsWith("/fx/") && path.endsWith(".lua")) {
+                    int slashIdx = path.lastIndexOf('/');
+                    int dotIdx = path.lastIndexOf('.');
+                    String baseName = path.substring(slashIdx + 1, dotIdx);
+                    String dstPath = "/fxc/" + baseName + ".luac";
+                    
+                    Serial.printf("[Surgical] Auto-Compiling %s to %s\n", path.c_str(), dstPath.c_str());
+                    compileLuaScript(path.c_str(), dstPath.c_str());
+                }
+            }
         }
     }
 }
@@ -402,6 +420,13 @@ void webuiInit() {
         if (index + len == total) {
             if (uploadFile) {
                     uploadFile.close();
+                    if (request->hasParam("name")) {
+                        String baseName = request->getParam("name")->value();
+                        String srcPath = "/fx/" + baseName + ".lua";
+                        String dstPath = "/fxc/" + baseName + ".luac";
+                        Serial.printf("[WebUI] Compiling %s to %s\n", srcPath.c_str(), dstPath.c_str());
+                        compileLuaScript(srcPath.c_str(), dstPath.c_str());
+                    }
                     delay(1000); ESP.restart();
                 }
             }

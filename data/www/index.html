@@ -43,7 +43,7 @@
         .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
         .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
         .form-group { margin-bottom: 10px; }
-        label { display: block; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+        label { display: block; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; align-content: center;}
 
         input[type="text"], input[type="password"], input[type="number"], select {
             width: 100%; padding: 8px; background: var(--bg); border: 1px solid var(--border); color: var(--accent); border-radius: 6px; box-sizing: border-box; font-size: 0.9rem;
@@ -120,7 +120,9 @@
         .pwd-fair { background: #ffaa00; width: 50%; }
         .pwd-good { background: #ffee00; width: 75%; }
         .pwd-strong { background: var(--success); width: 100%; }
-
+	input[type=range].ct-slider { -webkit-appearance: none; width: 100%; height: 12px; border-radius: 6px; background: linear-gradient(to right, #ff8b12 0%, #ffb45b 20%, #ffe4ce 40%, #ffffff 60%, #c4d7ff 80%, #9cbfff 100%); outline: none; }
+	input[type=range].ct-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #333; border: 2px solid #fff; cursor: pointer; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
+	input[type=range].ct-slider::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: #333; border: 2px solid #fff; cursor: pointer; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
     @font-face { 
         font-family: 'power_symbols'; 
         src: url(data:application/font-woff2;charset=utf-8;base64,d09GMgABAAAAAANQAAoAAAAABrgAAAMEAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAABmAAglIKhGyECAsOAAE2AiQDDgQgBYFPB38bjwXIHgfV7R3GNyxRxDDdFzEiCOaqqpNMNnvASAqe0UgAEO7V0fV2796P3WVSiSXod4FKVgL7uKjg+sAPVTFarV6/nw9/Ob618YA+gL+bg9PAxqZEs8iyuW2LJ5RTRi1uO/iOqHUq1fQIWSGuQUlW6lm6D6KJPDn93pqkBolSOdmo5hbT1kRXwDA6ztNf83yNzwtyBKi5GUjJrFH2eyZJBRrJdEOhkEDL5x3n/b+Alk+8kV/yb97p7AeMnPpvclAJ5XiLaAbIQEgkQkiyKl0qt65StVqlOHiwqfmUgPwYOUxjZccp4213jC9cun7zAxz7kVSMqmgeO87lvHltfIGAYx84fevYD/IRJYcdz10+xI5TzaXj9DAJ2THC+AL1dfJnWmWSXCAIooMkMQgQZc530JVeVJBsF0M0QuXqNwTsH4g6iMgpaoZlNQpV7l/agp9k35f+IJiuXvu6OepmVMF29dbXzcNhFNbYoWVv72VlB50Mnp3dpMfB0nXB5n+LRs9qrWtocN16tz/4v3+Dzy0K7v9XOxD87uM40iq2v43KPMlxw8O1x8zSnG56OzC7M6vzgJnYeqBe0Mws6LViMCOyGA0Uo0hq66hIhPyc3zkxi36fLbl9FHVUib+zjSv/dGD4xXPozJmTna0qORp1VAKlUNKD7brQ3O+GrK2NgMVLIiHvNhLhA7rnbRcFvfv2/GiyUb3TM7CTy9WORjNOd2PRLc2HfVzTYLSjhktHE9q67cqYfPX6jEYSNvwB6PjgtQTbjYe2EyhQPtwOBIIPbqTd41UH/V9ULMCXZ6qf2J28qOyLAgoJCIAMxedht4IhgvoJUcAdvdLRUdVMgdwgCUgQAsMAVHJHgBAIkMiFACnKBMhEQEoqKjblqCkVWbmQIJKopDZJ0dzMJKSkjpYNOfpvm+Msq51mzfbr0s02k622ynq7beaoOd9kh53W22qLZrrroptk1C3IiSTSyKIUeaW9Vbt/vDW1wU2pKV6pMTFJ3sJTWGtnr+AeJKa33FITGZ8RmRQNAAA=) format('woff2');
@@ -150,7 +152,7 @@
         <div><button class="btn-reboot" onclick="showRebootModal()">&#x23FB;</button><button onclick="handleLogout()" style="/*! margin: 0px 10px; */" class="btn-logout">➜]</button></div>
     </header>   
     <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('sys')">CONNECTION</button>
+        <button class="tab-btn active" onclick="switchTab('sys')">CONFIGURATION</button>
         <button class="tab-btn" onclick="switchTab('strips')">LED STRIPS</button>
         <button class="tab-btn" onclick="switchTab('zones')">LIGHTING ZONES</button>
         <button class="tab-btn" onclick="switchTab('lua')">EFFECTS</button>
@@ -159,19 +161,36 @@
 
     <div id="sys" class="tab-content active">
         <div class="card">
+            <h3>Light Settings</h3>
+            <div class="card-grid">
+                <label>Global Brightness</label>
+                <div class="slider-container">
+                    <input type="range" id="br" min="0" max="255" oninput="this.nextElementSibling.value = this.value">
+                    <input class="slider-val" type="number" step="1" min="0" max="255" oninput="this.previousElementSibling.value=this.value;">
+                </div>
+            </div>
+            <div class="card-grid">
+                <label>Event Transition Duration (ms)</label>
+                <div class="slider-container">
+                    <input type="range" id="fadeDurationMs" min="0" max="3000" oninput="this.nextElementSibling.value = this.value">
+                    <input class="slider-val" type="number" step="10" min="0" max="3000" oninput="this.previousElementSibling.value=this.value;">
+                </div>
+            </div>
+            <div class="card-grid">
+            <label>White Balance (Kelvin)</label>
+                <div class="slider-container">
+                    <input type="range" id="colortemp" class="ct-slider" min="1900" max="10091" step="10" style="flex: 1;" oninput="this.nextElementSibling.value = this.value">
+                    <input id="ct-val" class="slider-val" type="number" step="100" min="1900" max="10091" oninput="this.previousElementSibling.value=this.value;">
+                </div>
+            </div>
+        </div>
+        <div class="card">
             <h3>Network & Moonraker</h3>
             <div class="card-grid">
                 <div class="form-group"><label>WiFi SSID</label><input type="text" id="ssid"></div>
                 <div class="form-group"><label>WiFi Password</label><input type="password" id="pass"></div>
                 <div class="form-group"><label>Printer IP</label><input type="text" id="mHost"></div>
                 <div class="form-group"><label>Port</label><input type="number" min="1" max="65000" id="mPort"></div>
-            </div>
-        </div>
-        <div class="card">
-            <h3>Global Brightness</h3>
-            <div class="slider-container">
-                <input type="range" id="br" min="0" max="255" oninput="this.nextElementSibling.value = this.value">
-                <input class="slider-val" type="number" step="1" min="0" max="255" oninput="this.previousElementSibling.value=this.value;">
             </div>
         </div>
         <div class="card">
@@ -451,7 +470,7 @@
         }
     }
 
-const originalFetch = window.fetch;
+    const originalFetch = window.fetch;
     window.fetch = async function() {
         const response = await originalFetch.apply(this, arguments);
         if (response.status === 401 && !arguments[0].includes('login')) {
@@ -842,6 +861,10 @@ const originalFetch = window.fetch;
             document.getElementById('mPort').value = sysConfig.mPort || 7125;
             document.getElementById('br').value = sysConfig.br || 128;
             document.querySelector('#br + .slider-val').value = sysConfig.br || 128;
+            document.getElementById('fadeDurationMs').value = sysConfig.fadeDurationMs || 1000;
+            document.querySelector('#fadeDurationMs + .slider-val').value = sysConfig.fadeDurationMs || 1000;
+            document.getElementById('colortemp').value = sysConfig.colorTempK || 6500;
+            document.getElementById('ct-val').value = sysConfig.colorTempK || 6500;
             document.getElementById('mqttHost').value = sysConfig.mqttHost || '';
             document.getElementById('mqttPort').value = sysConfig.mqttPort || 1883;
             document.getElementById('mqttUser').value = sysConfig.mqttUser || '';
@@ -895,12 +918,8 @@ const originalFetch = window.fetch;
                 sysConfig.zones[idx].start = 0;
             }
         }
-
-        // 3. Trigger the splitting logic for this strip
-        // This will automatically create a new zone for any unallocated pixels
         splitStripIntoZones(stripIdx);
 
-        // Note: renderZones() and renderStrips() are called inside splitStripIntoZones
         showToast(`Zone ${idx} aligned and strip ${stripIdx} sliced.`, "success");
     }
     function renderZones() {
@@ -1070,6 +1089,8 @@ const originalFetch = window.fetch;
         sysConfig.mHost = document.getElementById('mHost').value;
         sysConfig.mPort = parseInt(document.getElementById('mPort').value);
         sysConfig.br = parseInt(document.getElementById('br').value);
+        sysConfig.fadeDurationMs = parseInt(document.getElementById('fadeDurationMs').value);
+        sysConfig.colorTempK = parseInt(document.getElementById('colortemp').value);
         sysConfig.mqttHost = document.getElementById('mqttHost').value;
         sysConfig.mqttPort = parseInt(document.getElementById('mqttPort').value);
         sysConfig.mqttUser = document.getElementById('mqttUser').value;

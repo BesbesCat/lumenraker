@@ -6,9 +6,9 @@
 
 extern char lastMoonrakerJson[1024];
 extern volatile EventType currentEvent;
-extern float progress[16];
-extern float currentTemp;
-extern float targetTemp;
+float progress[16];
+float currentTemp;
+float targetTemp;
 
 extern CRGB** universeMap;
 extern uint16_t totalUniverseLeds;
@@ -20,6 +20,79 @@ extern String lastLuaDebug = "";
 
 static int* last_bound_script = nullptr;
 static EventType* last_event = nullptr;
+
+static int luaBytecodeWriter(lua_State *L, const void* p, size_t size, void* u) {
+    File* f = (File*)u;
+    return (f->write((const uint8_t*)p, size) != size) ? 1 : 0;
+}
+
+bool compileLuaScript(const char* srcPath, const char* dstPath) {
+    File f = LittleFS.open(srcPath, "r");
+    if (!f) return false;
+    
+    size_t size = f.size();
+    char* buf = (char*)malloc(size);
+    if (!buf) { f.close(); return false; }
+    f.readBytes(buf, size);
+    f.close();
+
+    lua_State *C_VM = luaL_newstate(); 
+    if (!C_VM) { 
+        free(buf); 
+        return false; 
+    }
+    
+    if (luaL_loadbuffer(C_VM, buf, size, srcPath) != LUA_OK) {
+        Serial.printf("[LUA] Compile Error in %s: %s\n", srcPath, lua_tostring(C_VM, -1));
+        lua_close(C_VM);
+        free(buf);
+        return false;
+    }
+    free(buf);
+
+    File df = LittleFS.open(dstPath, "w");
+    if (!df) {
+        lua_close(C_VM);
+        return false;
+    }
+    
+    #if LUA_VERSION_NUM >= 503
+        lua_dump(C_VM, luaBytecodeWriter, &df, 1); 
+    #else
+        lua_dump(C_VM, luaBytecodeWriter, &df); 
+    #endif
+    
+    df.close();
+    
+    lua_close(C_VM); 
+    return true;
+}
+
+void checkAndCompileAllScripts() {
+    if (!LittleFS.exists("/fxc")) {
+        LittleFS.mkdir("/fxc");
+    }
+    
+    File root = LittleFS.open("/fx");
+    if (!root || !root.isDirectory()) return;
+
+    File file = root.openNextFile();
+    while (file) {
+        if (!file.isDirectory()) {
+            String fileName = String(file.name());
+            String srcPath = fileName.startsWith("/") ? fileName : "/fx/" + fileName;
+            
+            if (srcPath.endsWith(".lua")) {
+                int slashIdx = srcPath.lastIndexOf('/');
+                int dotIdx = srcPath.lastIndexOf('.');
+                String baseName = srcPath.substring(slashIdx + 1, dotIdx);
+                String dstPath = "/fxc/" + baseName + ".luac";
+                compileLuaScript(srcPath.c_str(), dstPath.c_str());
+            }
+        }
+        file = root.openNextFile();
+    }
+}
 
 int IRAM_ATTR l_get_count(lua_State* L) {
     lua_pushinteger(L, universeMap ? currentCount : 0);
@@ -210,6 +283,8 @@ void initLua() {
     if (L_VM) lua_close(L_VM);
     L_VM = luaL_newstate();
     luaL_openlibs(L_VM);
+
+    checkAndCompileAllScripts();
 
     if (last_bound_script) delete[] last_bound_script;
     if (last_event) delete[] last_event;
