@@ -1,8 +1,8 @@
-\# Roadmap
+# Roadmap
 
 
 
-\## v0.0.7 (I Can't Believe It's Not WLED!)
+## v0.0.7 (I Can't Believe It's Not WLED!)
 
 
 
@@ -13,7 +13,7 @@
 
 
 
-\## v0.0.8 (Music to my eyes ...)
+## v0.0.8 (Music to my eyes ...)
 
 
 * Global Color Palettes
@@ -22,7 +22,7 @@
 
 
 
-\## v0.0.9 (I swear I didn't steal those ideas from anywhere)
+## v0.0.9 (I swear I didn't steal those ideas from anywhere)
 
 
 
