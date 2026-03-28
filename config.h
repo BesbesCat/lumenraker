@@ -48,6 +48,16 @@ struct Config {
   char mqttUser[32];
   char mqttPass[64];
   
+  char uiBg[16];
+  char uiPanel[16];
+  char uiCard[16];
+  char uiText[16];
+  char uiDim[16];
+  char uiAccent[16];
+  char uiBorder[16];
+  char uiDanger[16];
+  char uiSuccess[16];
+
   int stripCount;
   Strip strips[MAX_STRIPS];
   

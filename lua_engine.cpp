@@ -6,6 +6,7 @@
 
 extern char lastMoonrakerJson[1024];
 extern volatile EventType currentEvent;
+extern EventType lastGlobalEvent;
 float progress[16];
 float currentTemp;
 float targetTemp;
@@ -232,15 +233,19 @@ int IRAM_ATTR l_get_json(lua_State* L) {
 bool executeLuaFast(int scriptRef, int zoneIndex) {
     if (!L_VM || zoneIndex >= config.zoneCount) return false;
 
+    // 1. Wipe the stack clean so previous errors don't cascade
+    lua_settop(L_VM, 0); 
+
     lua_pushinteger(L_VM, zoneIndex);
     lua_setglobal(L_VM, "id");
     lua_pushinteger(L_VM, (zoneIndex % 2 == 0) ? 2 : 1);
     lua_setglobal(L_VM, "axis");
 
-    lua_getglobal(L_VM, "zone_updates");
+    lua_getglobal(L_VM, "zone_updates"); // This table is now safely at Stack Index 1
     
+    // 2. Sync against lastGlobalEvent, NOT currentEvent, to prevent shadow-loader desync
     bool needs_rebind = (last_bound_script[zoneIndex] != scriptRef) || 
-                        (last_event[zoneIndex] != currentEvent);
+                        (last_event[zoneIndex] != lastGlobalEvent);
 
     if (needs_rebind) {
         lua_pushnil(L_VM);
@@ -249,33 +254,39 @@ bool executeLuaFast(int scriptRef, int zoneIndex) {
         lua_rawgeti(L_VM, LUA_REGISTRYINDEX, scriptRef);
         if (lua_pcall(L_VM, 0, 0, 0) != LUA_OK) {
             Serial.printf("[LUA] Init Error (Zone %d): %s\n", zoneIndex, lua_tostring(L_VM, -1));
-            lua_pop(L_VM, 2);
+            lua_settop(L_VM, 0); // Clean exit
             return false;
         }
 
-        lua_getglobal(L_VM, "update");
+        lua_getglobal(L_VM, "update"); // Result is at Stack Index 2
+        
         if (lua_isfunction(L_VM, -1)) {
-            lua_rawseti(L_VM, -2, zoneIndex); 
+            lua_pushvalue(L_VM, -1); // Copy the function
+            lua_rawseti(L_VM, 1, zoneIndex); // Save to zone_updates table at index 1
+            
             last_bound_script[zoneIndex] = scriptRef;
-            last_event[zoneIndex] = currentEvent; 
+            last_event[zoneIndex] = lastGlobalEvent; 
+        } else {
+            // FIX: If script has no update(), cleanly erase old functions to prevent stack panics
+            lua_pushnil(L_VM);
+            lua_rawseti(L_VM, 1, zoneIndex); 
         }
         
-        lua_rawgeti(L_VM, -1, zoneIndex);
-    } else {
-        lua_rawgeti(L_VM, -1, zoneIndex);
+        lua_pop(L_VM, 1); // Remove the 'update' global result to keep stack balanced
     }
+
+    // 3. Fetch the bound function
+    lua_rawgeti(L_VM, 1, zoneIndex); 
 
     if (lua_isfunction(L_VM, -1)) {
         if (lua_pcall(L_VM, 0, 0, 0) != LUA_OK) {
             Serial.printf("[LUA] Update Error (Zone %d): %s\n", zoneIndex, lua_tostring(L_VM, -1));
-            lua_pop(L_VM, 2);
+            lua_settop(L_VM, 0);
             return false;
         }
-    } else {
-        lua_pop(L_VM, 1);
-    }
+    } 
 
-    lua_pop(L_VM, 1);
+    lua_settop(L_VM, 0); // Always exit with 0 stack
     return true;
 }
 

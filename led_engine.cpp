@@ -30,6 +30,8 @@ CRGB** universeMap = nullptr;
 uint16_t totalUniverseLeds = 0;
 
 volatile EventType currentEvent = EVT_IDLE;
+volatile bool forceReload = false;
+volatile bool wbReload = false;
 
 int* cachedScriptRef = nullptr;
 char (*cachedPath)[64] = nullptr;
@@ -177,7 +179,7 @@ void ledTask(void* pv) {
     static EventType targetEvent = currentEvent;
     static bool isShadowLoading = false;
     static int loadZoneIndex = 0;
-    
+
     struct PendingScript {
         char* data;
         size_t size;
@@ -199,9 +201,16 @@ void ledTask(void* pv) {
         bool showNeeded = false;
         bool triggerFadeClock = false;
 
-        // --- 1. DETECT EVENT CHANGE OR ABORT ---
-        if (currentEvent != targetEvent) {
+        // --- 1. DETECT EVENT CHANGE OR FORCE RELOAD ---
+        // We now check the volatile forceReload flag
+        if (currentEvent != targetEvent || forceReload) {
             targetEvent = currentEvent;
+            if(wbReload == true) {
+                getKelvinRGB(config.colorTempK, global_ctR, global_ctG, global_ctB);
+            }
+
+            // Instantly acknowledge and clear the flag so it only fires once
+            forceReload = false; 
             
             // If we were already loading an event and it changed again mid-load, abort and free memory!
             if (isShadowLoading) {
@@ -245,8 +254,7 @@ void ledTask(void* pv) {
                     }
                 }
                 loadZoneIndex++;
-            } 
-            else {
+            } else {
                 // ALL FILES LOADED! EXECUTE THE HOT-SWAP.
                 
                 // A. Snapshot the exact final frame of the old effect for seamless crossfading
@@ -256,20 +264,33 @@ void ledTask(void* pv) {
                     }
                 }
 
-                // B. Nuke the garbage.
-                if (L_VM) { 
-                    lua_gc(L_VM, LUA_GCCOLLECT, 0); 
-                } 
-
-                // C. Load scripts instantly from RAM buffers and free the memory
+                // C. ONE-BY-ONE MEMORY SWAP
                 for (int i = 0; i < config.zoneCount; i++) {
-                    cachedScriptRef[i] = LUA_NOREF;
+                    
+                    // If executeLuaFast leaked stack variables, unref and loadbuffer will panic.
+                    // This resets the stack to 0, ensuring pristine memory state.
+                    if (L_VM) lua_settop(L_VM, 0); 
+                    
+                    // 1. Safely Unreference the old script
+                    if (cachedScriptRef[i] != LUA_NOREF) {
+                        luaL_unref(L_VM, LUA_REGISTRYINDEX, cachedScriptRef[i]);
+                        cachedScriptRef[i] = LUA_NOREF;
+                    }
                     memset(cachedPath[i], 0, 64);
 
+                    // 2. Force GC immediately to reclaim RAM for this specific zone
+                    if (L_VM) { 
+                        lua_gc(L_VM, LUA_GCCOLLECT, 0); 
+                    }
+
+                    // 3. Load the new script
+                    bool loadSuccess = false;
+                    
                     if (shadowBuffers[i].data) {
                         if (luaL_loadbuffer(L_VM, shadowBuffers[i].data, shadowBuffers[i].size, shadowBuffers[i].path) == LUA_OK) {
                             cachedScriptRef[i] = luaL_ref(L_VM, LUA_REGISTRYINDEX);
                             strncpy(cachedPath[i], shadowBuffers[i].path, 64);
+                            loadSuccess = true;
                             Serial.printf("[LUA]: Swapped %s from RAM\n", shadowBuffers[i].path);
                         } else {
                             Serial.printf("[LUA] RAM Load Error: %s\n", lua_tostring(L_VM, -1));
@@ -277,8 +298,10 @@ void ledTask(void* pv) {
                         }
                         free(shadowBuffers[i].data);
                         shadowBuffers[i].data = nullptr;
-                    } else {
-                        // If scriptName was empty or file missing, blackout the zone
+                    }
+
+                    // 4. FALLBACK: Force a blackout if load failed
+                    if (!loadSuccess) {
                         Zone &z = config.zones[i];
                         for (int j = 0; j < z.length; j++) {
                             int ledIdx = z.start + j;
@@ -305,13 +328,14 @@ void ledTask(void* pv) {
             Zone &z = config.zones[i];
             EffectConfig &ef = z.events[lastGlobalEvent]; 
 
-            // (Manual Web UI Edit Override) - Only runs if we aren't mid-transition
+            //Only runs if we aren't mid-transition
             if (!isShadowLoading && strlen(ef.scriptName) > 0) {
                 char path[64];
                 snprintf(path, sizeof(path), "/fxc/%s.luac", ef.scriptName);
                 if (strcmp(path, cachedPath[i]) != 0) {
                     if (cachedScriptRef[i] != LUA_NOREF) {
                         luaL_unref(L_VM, LUA_REGISTRYINDEX, cachedScriptRef[i]);
+                        lua_gc(L_VM, LUA_GCCOLLECT, 0);
                         cachedScriptRef[i] = LUA_NOREF;
                     }
                     File f = LittleFS.open(path, "r");

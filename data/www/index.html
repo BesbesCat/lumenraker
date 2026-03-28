@@ -5,13 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="/favicon.webp" type="image/webp">
     <title>LumenRaker | LED Control</title>
+    <link rel="stylesheet" href="/theme.css">
     <style>
-        :root { 
-            --bg: #0f111a; --panel: #1a1c25; --card: #242734; 
-            --text: #e0e0e0; --text-dim: #9499b0; --accent: #ff6600; 
-            --border: #30364d; --danger: #ff4444; --success: #00c853; 
-        }
-        
         body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; line-height: 1.6; }
         .container { max-width: 1100px; margin: auto; }
         
@@ -33,7 +28,7 @@
 
         .tabs { display: flex; gap: 5px; background: var(--panel); padding: 5px; border-radius: 8px; margin-bottom: 25px; }
         .tab-btn { flex: 1; background: transparent; border: none; color: var(--text-dim); padding: 12px; cursor: pointer; border-radius: 6px; font-weight: 600; transition: 0.3s; font-size: 0.9rem; }
-        .tab-btn:hover { background: rgba(255,102,0,0.1); color: var(--accent); }
+        .tab-btn:hover { background: var(--shadow); color: var(--accent); }
         .tab-btn.active { background: var(--accent); color: #fff; }
 
         .tab-content { display: none; animation: fadeIn 0.3s ease; }
@@ -52,7 +47,7 @@
 
         .slider-container { display: flex; align-items: center; gap: 10px; background: var(--bg); padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border); }
         input[type="range"] { flex: 1; accent-color: var(--accent); cursor: pointer; }
-        .slider-val { min-width: 25px; text-align: right; font-family: monospace; color: var(--accent); font-size: 0.8rem; max-width: 66px; text-align: left;}
+        .slider-val { min-width: 25px; text-align: right; font-family: monospace; color: var(--accent); font-size: 0.8rem; max-width: 75px; text-align: left;}
 
         .event-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
         .event-card { background: var(--card); border-radius: 8px; border: 1px solid var(--border); overflow: hidden; transition: 0.2s; }
@@ -65,12 +60,13 @@
         .is-expanded .event-extra-params { display: grid; animation: slideDown 0.2s ease-out; }
         @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 
-        input[type="color"] { border: none; width: 30px; height: 30px; cursor: pointer; background: none; padding: 0; }
+        input[type="color"] { border: 1px solid var(--border); border-radius: 4px; width: 100%; height: 36px; cursor: pointer; background: var(--bg); padding: 2px; }
+        
         button { border-radius: 6px; padding: 10px 20px; font-weight: 600; cursor: pointer; transition: 0.2s; border: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
         .btn-add { background: var(--success); color: #fff; margin-bottom: 20px; }
         .btn-danger { background: rgba(255,68,68,0.1); color: var(--danger); border: 1px solid var(--danger); }
         .btn-danger:hover { background: var(--danger); color: #fff; }
-        .btn-save { background: var(--accent); color: #fff; width: 100%; padding: 15px; font-size: 1rem; margin-top: 20px; box-shadow: 0 4px 15px rgba(255,102,0,0.3); }
+        .btn-save { background: var(--accent); color: #fff; width: 100%; padding: 15px; font-size: 1rem; margin-top: 20px; box-shadow: 0 4px 15px var(--shadow); }
         .btn-logout { background: var(--accent); color: white; border: none; padding: 8px 12px; cursor: pointer; border-radius: 4px; margin: 0px 10px; white-space: nowrap; text-align: center; -webkit-user-select: none; align-items: center; justify-content: center; line-height: 17px; }
 
         .lua-layout { display: grid; grid-template-columns: 280px 1fr; gap: 20px; }
@@ -100,7 +96,7 @@
 
         .text-warning { color: var(--danger) !important; animation: pulse 1s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        .sparkline { stroke: #1a1c25; fill: rgba(255, 102, 0, 0.39); stroke-width: 20; transition: all 0.3s ease; }
+        .sparkline { stroke: var(--panel); fill: var(--shadow); stroke-width: 20; transition: all 0.3s ease; }
 
         .text-warning + .sparkline { stroke: var(--danger); fill: rgba(255, 68, 68, 0.1); }
 
@@ -120,9 +116,9 @@
         .pwd-fair { background: #ffaa00; width: 50%; }
         .pwd-good { background: #ffee00; width: 75%; }
         .pwd-strong { background: var(--success); width: 100%; }
-	input[type=range].ct-slider { -webkit-appearance: none; width: 100%; height: 12px; border-radius: 6px; background: linear-gradient(to right, #ff8b12 0%, #ffb45b 20%, #ffe4ce 40%, #ffffff 60%, #c4d7ff 80%, #9cbfff 100%); outline: none; }
-	input[type=range].ct-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #333; border: 2px solid #fff; cursor: pointer; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
-	input[type=range].ct-slider::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: #333; border: 2px solid #fff; cursor: pointer; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
+    input[type=range].ct-slider { -webkit-appearance: none; width: 100%; height: 12px; border-radius: 6px; background: linear-gradient(to right, #ff8b12 0%, #ffb45b 20%, #ffe4ce 40%, #ffffff 60%, #c4d7ff 80%, #9cbfff 100%); outline: none; }
+    input[type=range].ct-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #333; border: 2px solid #fff; cursor: pointer; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
+    input[type=range].ct-slider::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: #333; border: 2px solid #fff; cursor: pointer; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
     @font-face { 
         font-family: 'power_symbols'; 
         src: url(data:application/font-woff2;charset=utf-8;base64,d09GMgABAAAAAANQAAoAAAAABrgAAAMEAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAABmAAglIKhGyECAsOAAE2AiQDDgQgBYFPB38bjwXIHgfV7R3GNyxRxDDdFzEiCOaqqpNMNnvASAqe0UgAEO7V0fV2796P3WVSiSXod4FKVgL7uKjg+sAPVTFarV6/nw9/Ob618YA+gL+bg9PAxqZEs8iyuW2LJ5RTRi1uO/iOqHUq1fQIWSGuQUlW6lm6D6KJPDn93pqkBolSOdmo5hbT1kRXwDA6ztNf83yNzwtyBKi5GUjJrFH2eyZJBRrJdEOhkEDL5x3n/b+Alk+8kV/yb97p7AeMnPpvclAJ5XiLaAbIQEgkQkiyKl0qt65StVqlOHiwqfmUgPwYOUxjZccp4213jC9cun7zAxz7kVSMqmgeO87lvHltfIGAYx84fevYD/IRJYcdz10+xI5TzaXj9DAJ2THC+AL1dfJnWmWSXCAIooMkMQgQZc530JVeVJBsF0M0QuXqNwTsH4g6iMgpaoZlNQpV7l/agp9k35f+IJiuXvu6OepmVMF29dbXzcNhFNbYoWVv72VlB50Mnp3dpMfB0nXB5n+LRs9qrWtocN16tz/4v3+Dzy0K7v9XOxD87uM40iq2v43KPMlxw8O1x8zSnG56OzC7M6vzgJnYeqBe0Mws6LViMCOyGA0Uo0hq66hIhPyc3zkxi36fLbl9FHVUib+zjSv/dGD4xXPozJmTna0qORp1VAKlUNKD7brQ3O+GrK2NgMVLIiHvNhLhA7rnbRcFvfv2/GiyUb3TM7CTy9WORjNOd2PRLc2HfVzTYLSjhktHE9q67cqYfPX6jEYSNvwB6PjgtQTbjYe2EyhQPtwOBIIPbqTd41UH/V9ULMCXZ6qf2J28qOyLAgoJCIAMxedht4IhgvoJUcAdvdLRUdVMgdwgCUgQAsMAVHJHgBAIkMiFACnKBMhEQEoqKjblqCkVWbmQIJKopDZJ0dzMJKSkjpYNOfpvm+Msq51mzfbr0s02k622ynq7beaoOd9kh53W22qLZrrroptk1C3IiSTSyKIUeaW9Vbt/vDW1wU2pKV6pMTFJ3sJTWGtnr+AeJKa33FITGZ8RmRQNAAA=) format('woff2');
@@ -225,7 +221,12 @@
                 <button class="btn-add" style="width:100%; margin-top:10px;" onclick="newScript()">+ NEW EFFECT</button>
             </div>
             <div>
-                <input type="text" id="script-name" placeholder="filename" style="margin-bottom:10px;" autocomplete="off">
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <input type="text" id="script-name" placeholder="filename" autocomplete="off" style="flex: 1; margin: 0;">
+                    <select id="editor-theme" style="width: 150px; cursor: pointer;" onchange="changeEditorTheme(this.value)">
+                        <option value="ace/theme/terminal">Terminal</option>
+                    </select>
+                </div>
                 
                 <div id="editor-container" style="position: relative; width: 100%;">
                     <div id="lua-editor" style="height: 500px; width: 100%; border-radius: 8px; font-size: 14px; display: none;"></div>
@@ -285,10 +286,28 @@
                 </tr>
             </table>
         </div>
+        
+        <div class="card">
+            <h3>Theme Colors</h3>
+            <p style="font-size:0.8rem; color:var(--text-dim); margin-bottom:15px;">Customize the WebUI appearance. Changes are previewed in real-time.</p>
+            <div class="card-grid">
+                <div class="form-group"><label>Background</label><input type="color" id="uiBg" oninput="updateThemeVar('--bg', this.value)"></div>
+                <div class="form-group"><label>Panel</label><input type="color" id="uiPanel" oninput="updateThemeVar('--panel', this.value)"></div>
+                <div class="form-group"><label>Card</label><input type="color" id="uiCard" oninput="updateThemeVar('--card', this.value)"></div>
+                <div class="form-group"><label>Text (Main)</label><input type="color" id="uiText" oninput="updateThemeVar('--text', this.value)"></div>
+                <div class="form-group"><label>Text (Dim)</label><input type="color" id="uiDim" oninput="updateThemeVar('--text-dim', this.value)"></div>
+                <div class="form-group"><label>Accent</label><input type="color" id="uiAccent" oninput="updateThemeVar('--accent', this.value)"></div>
+                <div class="form-group"><label>Border</label><input type="color" id="uiBorder" oninput="updateThemeVar('--border', this.value)"></div>
+                <div class="form-group"><label>Danger</label><input type="color" id="uiDanger" oninput="updateThemeVar('--danger', this.value)"></div>
+                <div class="form-group"><label>Success</label><input type="color" id="uiSuccess" oninput="updateThemeVar('--success', this.value)"></div>
+            </div>
+            <button class="btn-save" onclick="saveSystemConfig()">Save Theme</button>
+        </div>
+
         <div class="card">
             <div class="auth-header">
                 <h3>System Authentication</h3>
-            </div>    
+            </div>  
             <div class="form-group">
                 <label>Username</label>
                 <input type="text" id="sec-user" value="admin">
@@ -379,15 +398,21 @@
             
             // Sequential load for Ace Editor
             await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.js");
+            
+            // Set base path so Ace knows where to dynamically fetch themes and worker scripts from
+            ace.config.set("basePath", "https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/");
+            
             await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/mode-lua.min.js");
-            await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/theme-monokai.min.js");
+            await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/theme-terminal.min.js");
+            
+            // Load the theme list extension
+            await loadExternalScript("https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ext-themelist.min.js");
             
             // Initialize Ace if scripts loaded successfully
             document.getElementById('fallback-editor').style.display = 'none';
             document.getElementById('lua-editor').style.display = 'block';
             
             editor = ace.edit("lua-editor");
-            editor.setTheme("ace/theme/monokai");
             editor.session.setMode("ace/mode/lua");
             editor.setOptions({
                 enableBasicAutocompletion: true,
@@ -396,6 +421,15 @@
                 showPrintMargin: false,
                 fontSize: "14px"
             });
+            
+            // Setup Themes
+            const themelist = ace.require("ace/ext/themelist");
+            const themeSelect = document.getElementById("editor-theme");
+            themeSelect.innerHTML = themelist.themes.map(t => `<option value="${t.theme}">${t.caption}</option>`).join('');
+            
+            const savedTheme = localStorage.getItem('ace-theme') || "ace/theme/terminal";
+            themeSelect.value = savedTheme;
+            editor.setTheme(savedTheme);
             
             // Transfer text if user was using fallback while loading
             const fallbackText = document.getElementById('fallback-editor').value;
@@ -410,6 +444,13 @@
     loadOptionalLibraries();
 
     // Editor Helper Functions
+    function changeEditorTheme(themePath) {
+        if (editor) {
+            editor.setTheme(themePath);
+            localStorage.setItem('ace-theme', themePath);
+        }
+    }
+
     function setEditorContent(text) {
         if (editor) {
             editor.setValue(text, -1);
@@ -424,6 +465,11 @@
         } else {
             return document.getElementById('fallback-editor').value;
         }
+    }
+
+    // Dynamic UI Variable Injector
+    function updateThemeVar(cssVar, val) {
+        document.documentElement.style.setProperty(cssVar, val);
     }
 
     class TarBuilder {
@@ -447,7 +493,7 @@
             writeString(content.length.toString(8).padStart(11, '0') + '\0', 12);
             writeString(Math.floor(Date.now() / 1000).toString(8).padStart(11, '0') + '\0', 12);        
             const chksumOffset = offset;
-            writeString("        ", 8);                      // checksum placeholder
+            writeString("        ", 8);                       // checksum placeholder
             writeString("0", 1);                              // typeflag (0 = regular file)
             writeString("ustar\0", 6);                        // magic
             writeString("00", 2);                             // version
@@ -498,7 +544,7 @@
 
             if (res.ok) {
                 document.getElementById('login-overlay').classList.add('hidden');
-		init();
+        init();
             } else {
                 showToast("Invalid Credentials", "error");
             }
@@ -869,6 +915,18 @@
             document.getElementById('mqttPort').value = sysConfig.mqttPort || 1883;
             document.getElementById('mqttUser').value = sysConfig.mqttUser || '';
             document.getElementById('mqttPass').value = sysConfig.mqttPass || '';
+            
+            // Apply loaded Theme Colors
+            document.getElementById('uiBg').value = sysConfig.uiBg || '#0f172a';
+            document.getElementById('uiPanel').value = sysConfig.uiPanel || '#1e293b';
+            document.getElementById('uiCard').value = sysConfig.uiCard || '#334155';
+            document.getElementById('uiText').value = sysConfig.uiText || '#f8fafc';
+            document.getElementById('uiDim').value = sysConfig.uiDim || '#94a3b8';
+            document.getElementById('uiAccent').value = sysConfig.uiAccent || '#3b82f6';
+            document.getElementById('uiBorder').value = sysConfig.uiBorder || '#475569';
+            document.getElementById('uiDanger').value = sysConfig.uiDanger || '#ef4444';
+            document.getElementById('uiSuccess').value = sysConfig.uiSuccess || '#22c55e';
+            
             renderStrips(); renderZones();
         } catch (e) { console.error(e); }
     }
@@ -1095,6 +1153,18 @@
         sysConfig.mqttPort = parseInt(document.getElementById('mqttPort').value);
         sysConfig.mqttUser = document.getElementById('mqttUser').value;
         sysConfig.mqttPass = document.getElementById('mqttPass').value;
+        
+        // Save Theme Colors
+        sysConfig.uiBg = document.getElementById('uiBg').value;
+        sysConfig.uiPanel = document.getElementById('uiPanel').value;
+        sysConfig.uiCard = document.getElementById('uiCard').value;
+        sysConfig.uiText = document.getElementById('uiText').value;
+        sysConfig.uiDim = document.getElementById('uiDim').value;
+        sysConfig.uiAccent = document.getElementById('uiAccent').value;
+        sysConfig.uiBorder = document.getElementById('uiBorder').value;
+        sysConfig.uiDanger = document.getElementById('uiDanger').value;
+        sysConfig.uiSuccess = document.getElementById('uiSuccess').value;
+
         const res = await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sysConfig) });
         if (res.ok) {
             showToast("Settings synchronized successfully.", "success");

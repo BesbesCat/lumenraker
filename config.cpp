@@ -28,6 +28,16 @@ void defaultConfig() {
   config.mqttPort = 1883;
   strcpy(config.mqttUser, "");
   strcpy(config.mqttPass, "");
+  
+  strcpy(config.uiBg, "#0f111a");
+  strcpy(config.uiPanel, "#1a1c25");
+  strcpy(config.uiCard, "#242734");
+  strcpy(config.uiText, "#e0e0e0");
+  strcpy(config.uiDim, "#9499b0");
+  strcpy(config.uiAccent, "#3b82f6");
+  strcpy(config.uiBorder, "#30364d");
+  strcpy(config.uiDanger, "#ff4444");
+  strcpy(config.uiSuccess, "#00c853");
 
   config.stripCount = 1;
   config.strips[0].gpio = 5;
@@ -79,6 +89,16 @@ void loadConfig() {
   prefs.getBytes("mqttUser", config.mqttUser, 32);
   prefs.getBytes("mqttPass", config.mqttPass, 64);
 
+  prefs.getBytes("uiBg", config.uiBg, 16);
+  prefs.getBytes("uiPan", config.uiPanel, 16);
+  prefs.getBytes("uiCrd", config.uiCard, 16);
+  prefs.getBytes("uiTxt", config.uiText, 16);
+  prefs.getBytes("uiDim", config.uiDim, 16);
+  prefs.getBytes("uiAcc", config.uiAccent, 16);
+  prefs.getBytes("uiBdr", config.uiBorder, 16);
+  prefs.getBytes("uiDng", config.uiDanger, 16);
+  prefs.getBytes("uiSuc", config.uiSuccess, 16);
+
   config.brightness = prefs.getInt("br", 128);
   config.fadeDurationMs = prefs.getInt("fadeDur", 750);
   config.colorTempK = prefs.getInt("colTemp", 6500);
@@ -108,6 +128,17 @@ void saveConfig() {
   prefs.putBytes("wifiPASS", config.wifiPASS, 64);
   prefs.putBytes("mHost", config.moonrakerHost, 64);
   prefs.putInt("mPort", config.moonrakerPort);
+
+  prefs.putBytes("uiBg", config.uiBg, 16);
+  prefs.putBytes("uiPan", config.uiPanel, 16);
+  prefs.putBytes("uiCrd", config.uiCard, 16);
+  prefs.putBytes("uiTxt", config.uiText, 16);
+  prefs.putBytes("uiDim", config.uiDim, 16);
+  prefs.putBytes("uiAcc", config.uiAccent, 16);
+  prefs.putBytes("uiBdr", config.uiBorder, 16);
+  prefs.putBytes("uiDng", config.uiDanger, 16);
+  prefs.putBytes("uiSuc", config.uiSuccess, 16);
+
   prefs.putInt("br", config.brightness);
   prefs.putInt("fadeDur", config.fadeDurationMs);
   prefs.putInt("colTemp", config.colorTempK);

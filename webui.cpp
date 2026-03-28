@@ -15,9 +15,12 @@ size_t cachedFsUsed = 0;
 size_t cachedFsTotal = 0;
 
 extern String lastLuaDebug;
+extern bool forceReload;
+extern bool wbReload;
 
 String activeSessionToken = "";
 
+typedef bool (*ConfigCheckFunc)(JsonDocument&);
 
 String hashPassword(const String& password) {
     if (password.length() == 0) return "";
@@ -79,6 +82,15 @@ void handleGetConfig(AsyncWebServerRequest *request) {
     doc["br"] = config.brightness;
     doc["fadeDurationMs"] = config.fadeDurationMs;
     doc["colorTempK"] = config.colorTempK;
+    doc["uiBg"] = config.uiBg;
+    doc["uiPanel"] = config.uiPanel;
+    doc["uiCard"] = config.uiCard;
+    doc["uiText"] = config.uiText;
+    doc["uiDim"] = config.uiDim;
+    doc["uiAccent"] = config.uiAccent;
+    doc["uiBorder"] = config.uiBorder;
+    doc["uiDanger"] = config.uiDanger;
+    doc["uiSuccess"] = config.uiSuccess;
     doc["webUser"] = config.webUser;
     doc["mqttHost"] = config.mqttHost;
     doc["mqttPort"] = config.mqttPort;
@@ -120,6 +132,7 @@ void handleGetConfig(AsyncWebServerRequest *request) {
 
 void handleSaveConfig(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
     if (!isAuthenticated(request)) return request->send(401);
+    
     static String jsonBuffer;
     if (index == 0) jsonBuffer = "";
     jsonBuffer += String((char*)data).substring(0, len);
@@ -129,6 +142,41 @@ void handleSaveConfig(AsyncWebServerRequest *request, uint8_t *data, size_t len,
         DeserializationError error = deserializeJson(doc, jsonBuffer);
         
         if (!error) {
+            bool needReboot = false;
+            
+            ConfigCheckFunc rebootTriggers[] = {
+                [](JsonDocument& d) { return d.containsKey("ssid") && String(config.wifiSSID) != d["ssid"].as<String>(); },
+                [](JsonDocument& d) { return d.containsKey("pass") && String(config.wifiPASS) != d["pass"].as<String>(); },
+                
+                [](JsonDocument& d) { return d.containsKey("mHost") && String(config.moonrakerHost) != d["mHost"].as<String>(); },
+                [](JsonDocument& d) { return d.containsKey("mPort") && config.moonrakerPort != d["mPort"].as<int>(); },
+                
+                [](JsonDocument& d) { return d.containsKey("mqttHost") && String(config.mqttHost) != d["mqttHost"].as<String>(); },
+                [](JsonDocument& d) { return d.containsKey("mqttPort") && config.mqttPort != d["mqttPort"].as<int>(); },
+                [](JsonDocument& d) { return d.containsKey("mqttUser") && String(config.mqttUser) != d["mqttUser"].as<String>(); },
+                [](JsonDocument& d) { return d.containsKey("mqttPass") && String(config.mqttPass) != d["mqttPass"].as<String>(); },
+                
+                [](JsonDocument& d) { 
+                    if (!d.containsKey("strips")) return false;
+                    if (config.stripCount != d["strips"].size()) return true;
+                    for(int i = 0; i < config.stripCount && i < MAX_STRIPS; i++) {
+                        if (config.strips[i].gpio != d["strips"][i]["pin"].as<int>()) return true;
+                        if (config.strips[i].count != d["strips"][i]["cnt"].as<int>()) return true;
+                    }
+                    return false;
+                }
+            };
+
+            for (auto& trigger : rebootTriggers) {
+                if (trigger(doc)) {
+                    needReboot = true;
+                    break;
+                }
+            }
+            if(doc["colorTempK"] != config.colorTempK) {
+                wbReload = true;
+            }
+            
             strlcpy(config.wifiSSID, doc["ssid"] | "", sizeof(config.wifiSSID));
             strlcpy(config.wifiPASS, doc["pass"] | "", sizeof(config.wifiPASS));
             strlcpy(config.moonrakerHost, doc["mHost"] | "192.168.1.100", sizeof(config.moonrakerHost));
@@ -136,6 +184,16 @@ void handleSaveConfig(AsyncWebServerRequest *request, uint8_t *data, size_t len,
             config.brightness = doc["br"] | 128;
             config.fadeDurationMs = doc["fadeDurationMs"] | 1000;
             config.colorTempK = doc["colorTempK"] | 6500;
+            strlcpy(config.uiBg, doc["uiBg"] | "#0f172a", sizeof(config.uiBg));
+            strlcpy(config.uiPanel, doc["uiPanel"] | "#1e293b", sizeof(config.uiPanel));
+            strlcpy(config.uiCard, doc["uiCard"] | "#334155", sizeof(config.uiCard));
+            strlcpy(config.uiText, doc["uiText"] | "#f8fafc", sizeof(config.uiText));
+            strlcpy(config.uiDim, doc["uiDim"] | "#94a3b8", sizeof(config.uiDim));
+            strlcpy(config.uiAccent, doc["uiAccent"] | "#3b82f6", sizeof(config.uiAccent));
+            strlcpy(config.uiBorder, doc["uiBorder"] | "#475569", sizeof(config.uiBorder));
+            strlcpy(config.uiDanger, doc["uiDanger"] | "#ef4444", sizeof(config.uiDanger));
+            strlcpy(config.uiSuccess, doc["uiSuccess"] | "#22c55e", sizeof(config.uiSuccess));
+
             if(doc.containsKey("webUser")) strlcpy(config.webUser, doc["webUser"], sizeof(config.webUser));
             
             strlcpy(config.mqttHost, doc["mqttHost"] | "", sizeof(config.mqttHost));
@@ -176,8 +234,14 @@ void handleSaveConfig(AsyncWebServerRequest *request, uint8_t *data, size_t len,
             }
             
             saveConfig();
+            forceReload = true;
             request->send(200, "text/plain", "OK");
-            delay(1000); ESP.restart();
+
+            if (needReboot) {
+                delay(1000); 
+                ESP.restart();
+            }
+            
         } else {
             request->send(400, "text/plain", "Invalid JSON");
         }
@@ -427,7 +491,7 @@ void webuiInit() {
                         Serial.printf("[WebUI] Compiling %s to %s\n", srcPath.c_str(), dstPath.c_str());
                         compileLuaScript(srcPath.c_str(), dstPath.c_str());
                     }
-                    delay(1000); ESP.restart();
+                    forceReload = true;
                 }
             }
         }
@@ -468,6 +532,23 @@ void webuiInit() {
     });
 
     server.serveStatic("/", LittleFS, "/www/").setDefaultFile("index.html");
+
+    server.on("/theme.css", HTTP_GET, [](AsyncWebServerRequest *request) {
+        String css = ":root {\n";
+        css += "  --bg: "      + String(config.uiBg[0]      != '\0' ? config.uiBg      : "#0f172a") + ";\n";
+        css += "  --panel: "   + String(config.uiPanel[0]   != '\0' ? config.uiPanel   : "#1e293b") + ";\n";
+        css += "  --card: "    + String(config.uiCard[0]    != '\0' ? config.uiCard    : "#334155") + ";\n";
+        css += "  --text: "    + String(config.uiText[0]    != '\0' ? config.uiText    : "#f8fafc") + ";\n";
+        css += "  --text-dim: "+ String(config.uiDim[0]     != '\0' ? config.uiDim     : "#94a3b8") + ";\n";
+        css += "  --accent: "  + String(config.uiAccent[0]  != '\0' ? config.uiAccent  : "#3b82f6") + ";\n";
+        css += "  --border: "  + String(config.uiBorder[0]  != '\0' ? config.uiBorder  : "#475569") + ";\n";
+        css += "  --danger: "  + String(config.uiDanger[0]  != '\0' ? config.uiDanger  : "#ef4444") + ";\n";
+        css += "  --success: " + String(config.uiSuccess[0] != '\0' ? config.uiSuccess : "#22c55e") + ";\n";
+        css += "  --shadow: rgb(from var(--accent) r g b / 10%);\n"; 
+        css += "}\n";
+        
+        request->send(200, "text/css", css);
+    });
 
     server.begin();
 }
