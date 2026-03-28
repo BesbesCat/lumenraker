@@ -1,6 +1,16 @@
 # Changelog
 
+## v0.0.7 (I Can't Believe It's Not WLED!)
 
+- Implement cross-fade between event transitions.
+
+- Implement white balance.
+
+- Rewrite Toolhead_Rainbow.lua for better tracking and smoother animations.
+
+- Implement lua compiled code execution.
+
+- Fix issue where some times a zone would get stuck on old effect. this happened due to io lock when loading effect file from flash. so had to implement Shadow Loading and rewrite the led_engine so it's more memory safe during transitions.
 
 ## v0.0.6 (Speed of copper)
 
