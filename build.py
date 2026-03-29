@@ -88,9 +88,9 @@ def main():
         if os.path.exists(src_path):
             shutil.copy2(src_path, os.path.join(FW_DIR, dst_name))
 
-    littlefs_src = "littlefs.bin"
+    littlefs_src =  os.path.join(BUILD_DIR, "littlefs.bin")
     if os.path.exists(littlefs_src):
-        shutil.move(littlefs_src, os.path.join(FW_DIR, "littlefs.bin"))
+        shutil.copy2(littlefs_src, os.path.join(FW_DIR, "littlefs.bin"))
 
     shutil.copy2(tar_path, os.path.join(FW_DIR, "update.tar"))
 
