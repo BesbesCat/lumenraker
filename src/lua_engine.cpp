@@ -7,6 +7,8 @@
 extern char lastMoonrakerJson[1024];
 extern volatile EventType currentEvent;
 extern EventType lastGlobalEvent;
+extern int cachedScriptRef[];
+
 float progress[16];
 float currentTemp;
 float targetTemp;
@@ -15,6 +17,7 @@ extern CRGB** universeMap;
 extern uint16_t totalUniverseLeds;
 extern uint16_t currentZoneStart;
 extern uint16_t currentCount;
+extern bool ledsDirty;
 
 lua_State* L_VM = nullptr;
 extern String lastLuaDebug = "";
@@ -108,6 +111,7 @@ int IRAM_ATTR l_clear(lua_State* L) {
             *(universeMap[global_i]) = CRGB(0, 0, 0);
         }
     }
+    ledsDirty = true;
     return 0;
 }
 
@@ -145,6 +149,7 @@ int l_set_hsv(lua_State* L) {
             }
         }
         *(universeMap[global_i]) = CRGB(r, g, b);
+        ledsDirty = true;
     } 
     return 0;
 }
@@ -161,6 +166,7 @@ int IRAM_ATTR l_set_rgb(lua_State* L) {
             luaL_checkinteger(L, 3),
             luaL_checkinteger(L, 4)
         );
+        ledsDirty = true;
     } 
     return 0;
 }
@@ -178,6 +184,7 @@ int IRAM_ATTR l_fade(lua_State* L) {
             pixel->b = (pixel->b * fadeAmount) >> 8;
         }
     }
+    ledsDirty = true;
     return 0;
 }
 
@@ -236,11 +243,6 @@ bool executeLuaFast(int scriptRef, int zoneIndex) {
     // 1. Wipe the stack clean so previous errors don't cascade
     lua_settop(L_VM, 0); 
 
-    lua_pushinteger(L_VM, zoneIndex);
-    lua_setglobal(L_VM, "id");
-    lua_pushinteger(L_VM, (zoneIndex % 2 == 0) ? 2 : 1);
-    lua_setglobal(L_VM, "axis");
-
     lua_getglobal(L_VM, "zone_updates"); // This table is now safely at Stack Index 1
     
     // 2. Sync against lastGlobalEvent, NOT currentEvent, to prevent shadow-loader desync
@@ -267,7 +269,7 @@ bool executeLuaFast(int scriptRef, int zoneIndex) {
             last_bound_script[zoneIndex] = scriptRef;
             last_event[zoneIndex] = lastGlobalEvent; 
         } else {
-            // FIX: If script has no update(), cleanly erase old functions to prevent stack panics
+            // If script has no update(), cleanly erase old functions to prevent stack panics
             lua_pushnil(L_VM);
             lua_rawseti(L_VM, 1, zoneIndex); 
         }
@@ -279,7 +281,12 @@ bool executeLuaFast(int scriptRef, int zoneIndex) {
     lua_rawgeti(L_VM, 1, zoneIndex); 
 
     if (lua_isfunction(L_VM, -1)) {
-        if (lua_pcall(L_VM, 0, 0, 0) != LUA_OK) {
+        // Push arguments onto the stack AFTER the function
+        lua_pushinteger(L_VM, zoneIndex);                     // Argument 1: id
+        lua_pushinteger(L_VM, (zoneIndex % 2 == 0) ? 2 : 1);  // Argument 2: axis
+        
+        // Tell pcall to expect 2 arguments instead of 0
+        if (lua_pcall(L_VM, 2, 0, 0) != LUA_OK) {
             Serial.printf("[LUA] Update Error (Zone %d): %s\n", zoneIndex, lua_tostring(L_VM, -1));
             lua_settop(L_VM, 0);
             return false;
@@ -291,7 +298,13 @@ bool executeLuaFast(int scriptRef, int zoneIndex) {
 }
 
 void initLua() {
-    if (L_VM) lua_close(L_VM);
+    if (L_VM) {
+        lua_close(L_VM);
+        for (int i = 0; i < config.zoneCount; i++) {
+            cachedScriptRef[i] = LUA_NOREF;
+        }
+    }
+
     L_VM = luaL_newstate();
     luaL_openlibs(L_VM);
 

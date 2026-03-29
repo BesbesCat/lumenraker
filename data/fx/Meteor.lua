@@ -1,4 +1,4 @@
-function update()
+function update(id, axis)
     local count = led.get_count()
     if count == 0 then return end
 

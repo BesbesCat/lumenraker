@@ -2,7 +2,7 @@ local get_count = led.get_count
 local set_hsv = led.set_hsv
 local time_ms = millis
 if not dither_frame then dither_frame = 0 end
-function update()
+function update(id, axis)
     local count = get_count()
     if count == 0 then return end
     local speed = config.speed

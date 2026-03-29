@@ -30,8 +30,9 @@ CRGB** universeMap = nullptr;
 uint16_t totalUniverseLeds = 0;
 
 volatile EventType currentEvent = EVT_IDLE;
-volatile bool forceReload = false;
+volatile bool forceReload = true;
 volatile bool wbReload = false;
+volatile bool ledsDirty = false;
 
 int* cachedScriptRef = nullptr;
 char (*cachedPath)[64] = nullptr;
@@ -200,6 +201,7 @@ void ledTask(void* pv) {
     while(true) {
         bool showNeeded = false;
         bool triggerFadeClock = false;
+        ledsDirty = false;
 
         // --- 1. DETECT EVENT CHANGE OR FORCE RELOAD ---
         // We now check the volatile forceReload flag
@@ -214,7 +216,7 @@ void ledTask(void* pv) {
             
             // If we were already loading an event and it changed again mid-load, abort and free memory!
             if (isShadowLoading) {
-                for (int i = 0; i < config.zoneCount; i++) {
+                for (int i = 0; i < 32; i++) {
                     if (shadowBuffers[i].data) {
                         free(shadowBuffers[i].data);
                         shadowBuffers[i].data = nullptr;
@@ -271,24 +273,16 @@ void ledTask(void* pv) {
                     // This resets the stack to 0, ensuring pristine memory state.
                     if (L_VM) lua_settop(L_VM, 0); 
                     
-                    // 1. Safely Unreference the old script
-                    if (cachedScriptRef[i] != LUA_NOREF) {
-                        luaL_unref(L_VM, LUA_REGISTRYINDEX, cachedScriptRef[i]);
-                        cachedScriptRef[i] = LUA_NOREF;
-                    }
-                    memset(cachedPath[i], 0, 64);
-
-                    // 2. Force GC immediately to reclaim RAM for this specific zone
-                    if (L_VM) { 
-                        lua_gc(L_VM, LUA_GCCOLLECT, 0); 
-                    }
-
-                    // 3. Load the new script
-                    bool loadSuccess = false;
+                    // --- THE FIX: Load new script BEFORE unreferencing the old one ---
+                    // This prevents Lua from recycling the same Registry ID.
                     
+                    bool loadSuccess = false;
+                    int newScriptRef = LUA_NOREF;
+                    
+                    // 1. Load the NEW script and get a guaranteed fresh ID
                     if (shadowBuffers[i].data) {
                         if (luaL_loadbuffer(L_VM, shadowBuffers[i].data, shadowBuffers[i].size, shadowBuffers[i].path) == LUA_OK) {
-                            cachedScriptRef[i] = luaL_ref(L_VM, LUA_REGISTRYINDEX);
+                            newScriptRef = luaL_ref(L_VM, LUA_REGISTRYINDEX); 
                             strncpy(cachedPath[i], shadowBuffers[i].path, 64);
                             loadSuccess = true;
                             Serial.printf("[LUA]: Swapped %s from RAM\n", shadowBuffers[i].path);
@@ -298,6 +292,18 @@ void ledTask(void* pv) {
                         }
                         free(shadowBuffers[i].data);
                         shadowBuffers[i].data = nullptr;
+                    }
+
+                    // 2. NOW safely unreference the OLD script
+                    if (cachedScriptRef[i] != LUA_NOREF) {
+                        luaL_unref(L_VM, LUA_REGISTRYINDEX, cachedScriptRef[i]);
+                    }
+                    
+                    // 3. Update the global tracking array
+                    cachedScriptRef[i] = newScriptRef;
+
+                    if (!loadSuccess) {
+                        memset(cachedPath[i], 0, 64);
                     }
 
                     // 4. FALLBACK: Force a blackout if load failed
@@ -311,6 +317,11 @@ void ledTask(void* pv) {
                         }
                         showNeeded = true;
                     }
+                }
+
+                // Run the collector ONCE after all memory swaps are complete
+                if (L_VM) { 
+                    lua_gc(L_VM, LUA_GCCOLLECT, 0); 
                 }
 
                 // D. Finalize state swap and trigger the crossfade!
@@ -328,46 +339,19 @@ void ledTask(void* pv) {
             Zone &z = config.zones[i];
             EffectConfig &ef = z.events[lastGlobalEvent]; 
 
-            //Only runs if we aren't mid-transition
-            if (!isShadowLoading && strlen(ef.scriptName) > 0) {
-                char path[64];
-                snprintf(path, sizeof(path), "/fxc/%s.luac", ef.scriptName);
-                if (strcmp(path, cachedPath[i]) != 0) {
-                    if (cachedScriptRef[i] != LUA_NOREF) {
-                        luaL_unref(L_VM, LUA_REGISTRYINDEX, cachedScriptRef[i]);
-                        lua_gc(L_VM, LUA_GCCOLLECT, 0);
-                        cachedScriptRef[i] = LUA_NOREF;
-                    }
-                    File f = LittleFS.open(path, "r");
-                    if (f) {
-                        size_t sz = f.size();
-                        if (sz > 0) {
-                            char* buf = (char*)malloc(sz);
-                            if (buf) {
-                                f.readBytes(buf, sz);
-                                if (luaL_loadbuffer(L_VM, buf, sz, path) == LUA_OK) {
-                                    cachedScriptRef[i] = luaL_ref(L_VM, LUA_REGISTRYINDEX);
-                                } else { lua_pop(L_VM, 1); }
-                                free(buf);
-                            }
-                        }
-                        f.close();
-                    }
-                    strncpy(cachedPath[i], path, 64);
-                }
-            }
-
             currentZoneStart = z.start; 
             currentCount = z.length;
             currentReversed = z.reversed;
             current_lua_config = &ef;
 
             if (cachedScriptRef[i] != LUA_NOREF) {                
-                if (executeLuaFast(cachedScriptRef[i], i)) {
-                    showNeeded = true;
-                }
+                    executeLuaFast(cachedScriptRef[i], i);
             }
             current_lua_config = nullptr;
+        }
+
+        if (ledsDirty) {
+            showNeeded = true;
         }
 
         // --- 4. FADE LOGIC ---

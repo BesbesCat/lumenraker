@@ -4,17 +4,17 @@ import json
 import tarfile
 import struct
 
-VERSION = "0.0.6-alpha"
-BUILD_DIR = os.path.join("build", "esp32.esp32.d1_mini32")
+VERSION = "0.0.8-alpha"
+BUILD_DIR = os.path.join(".pio", "build/lumenraker")
 UPDATE_DIR = os.path.join(BUILD_DIR, "update")
 DATA_DIR = "data"
 DOCS_DIR = "docs"
 FW_DIR = os.path.join(DOCS_DIR, "firmware")
 
 FILES_TO_PROCESS = [
-    ("lumenraker.ino.bin", "firmware.bin"),
-    ("lumenraker.ino.bootloader.bin", "bootloader.bin"),
-    ("lumenraker.ino.partitions.bin", "partitions.bin")
+    ("firmware.bin", "firmware.bin"),
+    ("bootloader.bin", "bootloader.bin"),
+    ("partitions.bin", "partitions.bin")
 ]
 
 def get_littlefs_offset(partition_bin_path):
@@ -42,7 +42,7 @@ def main():
         return
 
     # 1. Automatic Offset Discovery
-    partition_bin = os.path.join(BUILD_DIR, "lumenraker.ino.partitions.bin")
+    partition_bin = os.path.join(BUILD_DIR, "partitions.bin")
     discovered_offset = get_littlefs_offset(partition_bin)
     
     if discovered_offset:
@@ -65,7 +65,7 @@ def main():
             else:
                 shutil.copy2(s, d)
 
-    fw_src = os.path.join(BUILD_DIR, "lumenraker.ino.bin")
+    fw_src = os.path.join(BUILD_DIR, "firmware.bin")
     if os.path.exists(fw_src):
         shutil.copy2(fw_src, os.path.join(UPDATE_DIR, "firmware.bin"))
 
@@ -88,7 +88,7 @@ def main():
         if os.path.exists(src_path):
             shutil.copy2(src_path, os.path.join(FW_DIR, dst_name))
 
-    littlefs_src = "mklittlefs.bin"
+    littlefs_src = "littlefs.bin"
     if os.path.exists(littlefs_src):
         shutil.move(littlefs_src, os.path.join(FW_DIR, "littlefs.bin"))
 

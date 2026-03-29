@@ -54,7 +54,7 @@
         .event-main-row { display: grid; grid-template-columns: 40px 120px 180px 1fr 60px; gap: 15px; align-items: center; padding: 12px 15px; background: rgba(0,0,0,0.2); }
         .event-title { font-weight: bold; color: var(--accent); font-size: 0.85rem; }
         .toggle-details { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 4px; width: 24px; height: 24px; border-radius: 4px; line-height: 1; font-size: 0.7rem; cursor: pointer;}
-        .is-expanded .toggle-details { background: var(--accent); color: #fff; border-color: var(--accent); transform: rotate(90deg);}
+        .is-expanded .toggle-details { background: var(--card); color: #fff; border-color: var(--border); }
 
         .event-extra-params { display: none; grid-template-columns: repeat(3, 1fr); gap: 15px; padding: 15px; background: rgba(0,0,0,0.1); border-top: 1px solid var(--border); }
         .is-expanded .event-extra-params { display: grid; animation: slideDown 0.2s ease-out; }
@@ -1011,7 +1011,7 @@
                     ${z.evts.map((e, ei) => `
                         <div class="event-card">
                             <div class="event-main-row">
-                                <button class="toggle-details" onclick="this.closest('.event-card').classList.toggle('is-expanded')">▶</button>
+                                <button class="toggle-details" onclick="this.closest('.event-card').classList.toggle('is-expanded')">⚙</button>
                                 <span class="event-title">${EVENTS[ei]}</span>
                                 <div>
                                     <select onchange="sysConfig.zones[${i}].evts[${ei}].fx=this.value">

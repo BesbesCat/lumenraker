@@ -1,4 +1,4 @@
-function update()
+function update(id, axis)
     local count = led.get_count()
     local br = config.brightness / 255.0
 

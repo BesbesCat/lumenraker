@@ -1,6 +1,6 @@
 {
   "name": "Lumenraker",
-  "version": "0.0.6-alpha",
+  "version": "0.0.8-alpha",
   "home_assistant_domain": "lumenraker",
   "builds": [
     {
