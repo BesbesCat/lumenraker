@@ -18,19 +18,13 @@ void webuiInit();
 
 void handleStatus(JsonObject s) {
 
-    // 1. Update Print State FIRST (Absolute Highest Priority)
+    // 1. Track the persistent print state 
+    static String printState = "standby";
     if (s.containsKey("print_stats")) {
-        String state = s["print_stats"]["state"] | "";
-        if (state == "printing") currentEvent = EVT_PRINTING;
-        else if (state == "complete") currentEvent = EVT_IDLE;
-        else if (state == "standby") currentEvent = EVT_IDLE;
-        else if (state == "error") currentEvent = EVT_ERROR;
+        printState = s["print_stats"]["state"] | printState;
     }
 
-    // If printing or error, bypass background animations entirely
-    if (currentEvent == EVT_PRINTING || currentEvent == EVT_ERROR) return;
-
-    // 2. Track Partial Payload States Continuously
+    // 2. Parse ALL Data Continuously (Never skip this!)
     static float bedTemp = 0;
     static float bedTarget = 0;
     static float extTemp = 0;
@@ -60,30 +54,39 @@ void handleStatus(JsonObject s) {
     }
 
     // 3. PRIORITY EVALUATION HIERARCHY
-    // A timeout of 1500ms ensures Homing transitions smoothly back to Heating if the toolhead stops moving.
-    bool isHomingEvent = (millis() - lastMoveTime < 10000);
-    bool isBedHeating = (bedTarget > 0 && bedTemp < bedTarget - 1.0f);
-    bool isExtHeating = (extTarget > 0 && extTemp < extTarget - 1.0f);
-
-    if (isHomingEvent) {
-        // Priority 1: Homing
-        currentEvent = EVT_HOMING;
+    // Lock into Printing/Error states first. 
+    if (printState == "printing") {
+        currentEvent = EVT_PRINTING;
     } 
-    else if (isBedHeating) {
-        // Priority 2: Heating Bed
-        currentTemp = bedTemp;
-        targetTemp = bedTarget;
-        currentEvent = EVT_HEATING;
-    } 
-    else if (isExtHeating) {
-        // Priority 3: Heating Extruder
-        currentTemp = extTemp;
-        targetTemp = extTarget;
-        currentEvent = EVT_HEATING_EXTRUDER;
+    else if (printState == "error") {
+        currentEvent = EVT_ERROR;
     } 
     else {
-        // Priority 4: Idle (Naturally cleans up heating/homing states when finished)
-        currentEvent = EVT_IDLE;
+        // Only evaluate background animations (Homing/Heating) if we aren't actively printing
+        bool isHomingEvent = (millis() - lastMoveTime < 10000);
+        bool isBedHeating = (bedTarget > 0 && bedTemp < bedTarget - 1.0f);
+        bool isExtHeating = (extTarget > 0 && extTemp < extTarget - 1.0f);
+
+        if (isHomingEvent) {
+            // Priority 1: Homing
+            currentEvent = EVT_HOMING;
+        } 
+        else if (isBedHeating) {
+            // Priority 2: Heating Bed
+            currentTemp = bedTemp;
+            targetTemp = bedTarget;
+            currentEvent = EVT_HEATING;
+        } 
+        else if (isExtHeating) {
+            // Priority 3: Heating Extruder
+            currentTemp = extTemp;
+            targetTemp = extTarget;
+            currentEvent = EVT_HEATING_EXTRUDER;
+        } 
+        else {
+            // Priority 4: Idle
+            currentEvent = EVT_IDLE;
+        }
     }
 }
 
