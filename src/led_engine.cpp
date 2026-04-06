@@ -2,6 +2,7 @@
 #include <LittleFS.h>
 #include "config.h"
 #include "lua_engine.h"
+#include "E131Receiver.h" 
 
 class StripWrapper {
 public:
@@ -45,6 +46,8 @@ const EffectConfig* current_lua_config = nullptr;
 int currentFPS = 0;
 
 CRGB* snapshotBuffer = nullptr;
+CRGB* streamBuffer = nullptr; // <--- The hidden UDP buffer
+
 EventType lastGlobalEvent = EVT_IDLE;
 unsigned long fadeStartTime = 0;
 bool isFading = false;
@@ -52,6 +55,8 @@ bool isFading = false;
 uint8_t global_ctR = 255;
 uint8_t global_ctG = 255;
 uint8_t global_ctB = 255;
+
+E131Receiver streamReceiver;
 
 const uint8_t PROGMEM gamma8[] = {
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -99,6 +104,7 @@ void getKelvinRGB(int kelvin, uint8_t &r, uint8_t &g, uint8_t &b) {
 void allocateBuffers() {
     if (universeMap) { delete[] universeMap; universeMap = nullptr; }
     if (snapshotBuffer) { delete[] snapshotBuffer; snapshotBuffer = nullptr; }
+    if (streamBuffer) { delete[] streamBuffer; streamBuffer = nullptr; }
 
     for (int i = 0; i < MAX_STRIPS; i++) {
         if (stripBuffers[i]) { delete[] stripBuffers[i]; stripBuffers[i] = nullptr; }
@@ -116,6 +122,7 @@ void allocateBuffers() {
     if (totalUniverseLeds > 0) {
         universeMap = new CRGB*[totalUniverseLeds];
         snapshotBuffer = new CRGB[totalUniverseLeds];
+        streamBuffer = new CRGB[totalUniverseLeds];
         
         uint16_t mapIndex = 0;
         for (int i = 0; i < config.stripCount; i++) {
@@ -125,6 +132,7 @@ void allocateBuffers() {
             }
         }
         memset(snapshotBuffer, 0, totalUniverseLeds * sizeof(CRGB));
+        memset(streamBuffer, 0, totalUniverseLeds * sizeof(CRGB));
     }
 
     if (cachedScriptRef) delete[] cachedScriptRef;
@@ -136,6 +144,24 @@ void allocateBuffers() {
     for (int i = 0; i < config.zoneCount; i++) {
         cachedScriptRef[i] = LUA_NOREF;
         memset(cachedPath[i], 0, 64);
+    }
+}
+
+// Maps incoming DMX bytes to the hidden background stream buffer
+void handleStreamData(uint16_t universe, uint8_t* dmxData, uint16_t length) {
+    if (!streamBuffer || totalUniverseLeds == 0) return;
+
+    // Hardcoded 170
+    uint16_t startLedIndex = (universe - 1) * 170; 
+    uint16_t ledsInPacket = length / 3;
+
+    for (uint16_t i = 0; i < ledsInPacket; i++) {
+        uint16_t globalIdx = startLedIndex + i;
+        if (globalIdx < totalUniverseLeds) {
+            streamBuffer[globalIdx].r = dmxData[i * 3];
+            streamBuffer[globalIdx].g = dmxData[(i * 3) + 1];
+            streamBuffer[globalIdx].b = dmxData[(i * 3) + 2];
+        }
     }
 }
 
@@ -170,7 +196,6 @@ void ledsInit() {
     initLua();
 }
 
-
 void ledTask(void* pv) {
     unsigned long lastFpsTime = millis();
     unsigned long lastGCTime = lastFpsTime;
@@ -186,7 +211,7 @@ void ledTask(void* pv) {
         size_t size;
         char path[64];
     };
-    static PendingScript shadowBuffers[32]; // Accommodates up to 32 zones safely
+    static PendingScript shadowBuffers[32];
 
     static bool initShadow = false;
     if (!initShadow) {
@@ -204,17 +229,14 @@ void ledTask(void* pv) {
         ledsDirty = false;
 
         // --- 1. DETECT EVENT CHANGE OR FORCE RELOAD ---
-        // We now check the volatile forceReload flag
         if (currentEvent != targetEvent || forceReload) {
             targetEvent = currentEvent;
             if(wbReload == true) {
                 getKelvinRGB(config.colorTempK, global_ctR, global_ctG, global_ctB);
             }
 
-            // Instantly acknowledge and clear the flag so it only fires once
             forceReload = false; 
             
-            // If we were already loading an event and it changed again mid-load, abort and free memory!
             if (isShadowLoading) {
                 for (int i = 0; i < 32; i++) {
                     if (shadowBuffers[i].data) {
@@ -231,7 +253,6 @@ void ledTask(void* pv) {
         // --- 2. BACKGROUND SHADOW LOADING ---
         if (isShadowLoading) {
             if (loadZoneIndex < config.zoneCount) {
-                // Load ONE file per frame into RAM so we don't block the running animation
                 int i = loadZoneIndex;
                 Zone &z = config.zones[i];
                 EffectConfig &ef = z.events[targetEvent];
@@ -257,29 +278,18 @@ void ledTask(void* pv) {
                 }
                 loadZoneIndex++;
             } else {
-                // ALL FILES LOADED! EXECUTE THE HOT-SWAP.
-                
-                // A. Snapshot the exact final frame of the old effect for seamless crossfading
                 if (totalUniverseLeds > 0 && universeMap && snapshotBuffer) {
                     for (uint16_t idx = 0; idx < totalUniverseLeds; idx++) {
                         snapshotBuffer[idx] = *(universeMap[idx]);
                     }
                 }
 
-                // C. ONE-BY-ONE MEMORY SWAP
                 for (int i = 0; i < config.zoneCount; i++) {
-                    
-                    // If executeLuaFast leaked stack variables, unref and loadbuffer will panic.
-                    // This resets the stack to 0, ensuring pristine memory state.
                     if (L_VM) lua_settop(L_VM, 0); 
-                    
-                    // --- THE FIX: Load new script BEFORE unreferencing the old one ---
-                    // This prevents Lua from recycling the same Registry ID.
                     
                     bool loadSuccess = false;
                     int newScriptRef = LUA_NOREF;
                     
-                    // 1. Load the NEW script and get a guaranteed fresh ID
                     if (shadowBuffers[i].data) {
                         if (luaL_loadbuffer(L_VM, shadowBuffers[i].data, shadowBuffers[i].size, shadowBuffers[i].path) == LUA_OK) {
                             newScriptRef = luaL_ref(L_VM, LUA_REGISTRYINDEX); 
@@ -294,20 +304,14 @@ void ledTask(void* pv) {
                         shadowBuffers[i].data = nullptr;
                     }
 
-                    // 2. NOW safely unreference the OLD script
                     if (cachedScriptRef[i] != LUA_NOREF) {
                         luaL_unref(L_VM, LUA_REGISTRYINDEX, cachedScriptRef[i]);
                     }
                     
-                    // 3. Update the global tracking array
                     cachedScriptRef[i] = newScriptRef;
 
                     if (!loadSuccess) {
                         memset(cachedPath[i], 0, 64);
-                    }
-
-                    // 4. FALLBACK: Force a blackout if load failed
-                    if (!loadSuccess) {
                         Zone &z = config.zones[i];
                         for (int j = 0; j < z.length; j++) {
                             int ledIdx = z.start + j;
@@ -319,12 +323,8 @@ void ledTask(void* pv) {
                     }
                 }
 
-                // Run the collector ONCE after all memory swaps are complete
-                if (L_VM) { 
-                    lua_gc(L_VM, LUA_GCCOLLECT, 0); 
-                }
+                if (L_VM) { lua_gc(L_VM, LUA_GCCOLLECT, 0); }
 
-                // D. Finalize state swap and trigger the crossfade!
                 isShadowLoading = false;
                 lastGlobalEvent = targetEvent;
                 isFading = true;
@@ -332,9 +332,7 @@ void ledTask(void* pv) {
             }
         }
 
-        // --- 3. EXECUTE LUA ---
-        // Notice we always use `lastGlobalEvent` here. If we are currently loading,
-        // this guarantees the old animation continues playing flawlessly.
+        // --- 3. EXECUTE LUA ALWAYS ---
         for (int i = 0; i < config.zoneCount; i++) {
             Zone &z = config.zones[i];
             EffectConfig &ef = z.events[lastGlobalEvent]; 
@@ -345,7 +343,7 @@ void ledTask(void* pv) {
             current_lua_config = &ef;
 
             if (cachedScriptRef[i] != LUA_NOREF) {                
-                    executeLuaFast(cachedScriptRef[i], i);
+                executeLuaFast(cachedScriptRef[i], i);
             }
             current_lua_config = nullptr;
         }

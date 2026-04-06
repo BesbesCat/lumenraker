@@ -14,6 +14,7 @@ float currentTemp;
 float targetTemp;
 
 extern CRGB** universeMap;
+extern CRGB* streamBuffer; // The new background buffer
 extern uint16_t totalUniverseLeds;
 extern uint16_t currentZoneStart;
 extern uint16_t currentCount;
@@ -188,6 +189,33 @@ int IRAM_ATTR l_fade(lua_State* L) {
     return 0;
 }
 
+int IRAM_ATTR l_get_stream_pixel(lua_State* L) {
+    int i = luaL_checkinteger(L, 1);
+    
+    if (!streamBuffer || currentCount == 0 || totalUniverseLeds == 0 || i < 0 || i >= currentCount) {
+        lua_pushinteger(L, 0); lua_pushinteger(L, 0); lua_pushinteger(L, 0);
+        return 3;
+    }
+
+    if (currentReversed) i = (currentCount - 1) - i;
+    
+    uint16_t global_i = 0;
+    
+    if (currentCount > 1) {
+        global_i = (i * (totalUniverseLeds - 1)) / (currentCount - 1);
+    }
+    
+    if (global_i < totalUniverseLeds) {
+        lua_pushinteger(L, streamBuffer[global_i].r);
+        lua_pushinteger(L, streamBuffer[global_i].g);
+        lua_pushinteger(L, streamBuffer[global_i].b);
+        return 3; 
+    }
+    
+    lua_pushinteger(L, 0); lua_pushinteger(L, 0); lua_pushinteger(L, 0);
+    return 3;
+}
+
 int l_debug_log(lua_State* L) {
     const char* msg = luaL_checkstring(L, 1);
     lastLuaDebug = String(msg);
@@ -243,9 +271,8 @@ bool executeLuaFast(int scriptRef, int zoneIndex) {
     // 1. Wipe the stack clean so previous errors don't cascade
     lua_settop(L_VM, 0); 
 
-    lua_getglobal(L_VM, "zone_updates"); // This table is now safely at Stack Index 1
+    lua_getglobal(L_VM, "zone_updates"); 
     
-    // 2. Sync against lastGlobalEvent, NOT currentEvent, to prevent shadow-loader desync
     bool needs_rebind = (last_bound_script[zoneIndex] != scriptRef) || 
                         (last_event[zoneIndex] != lastGlobalEvent);
 
@@ -256,36 +283,32 @@ bool executeLuaFast(int scriptRef, int zoneIndex) {
         lua_rawgeti(L_VM, LUA_REGISTRYINDEX, scriptRef);
         if (lua_pcall(L_VM, 0, 0, 0) != LUA_OK) {
             Serial.printf("[LUA] Init Error (Zone %d): %s\n", zoneIndex, lua_tostring(L_VM, -1));
-            lua_settop(L_VM, 0); // Clean exit
+            lua_settop(L_VM, 0); 
             return false;
         }
 
-        lua_getglobal(L_VM, "update"); // Result is at Stack Index 2
+        lua_getglobal(L_VM, "update"); 
         
         if (lua_isfunction(L_VM, -1)) {
-            lua_pushvalue(L_VM, -1); // Copy the function
-            lua_rawseti(L_VM, 1, zoneIndex); // Save to zone_updates table at index 1
+            lua_pushvalue(L_VM, -1); 
+            lua_rawseti(L_VM, 1, zoneIndex); 
             
             last_bound_script[zoneIndex] = scriptRef;
             last_event[zoneIndex] = lastGlobalEvent; 
         } else {
-            // If script has no update(), cleanly erase old functions to prevent stack panics
             lua_pushnil(L_VM);
             lua_rawseti(L_VM, 1, zoneIndex); 
         }
         
-        lua_pop(L_VM, 1); // Remove the 'update' global result to keep stack balanced
+        lua_pop(L_VM, 1); 
     }
 
-    // 3. Fetch the bound function
     lua_rawgeti(L_VM, 1, zoneIndex); 
 
     if (lua_isfunction(L_VM, -1)) {
-        // Push arguments onto the stack AFTER the function
-        lua_pushinteger(L_VM, zoneIndex);                     // Argument 1: id
-        lua_pushinteger(L_VM, (zoneIndex % 2 == 0) ? 2 : 1);  // Argument 2: axis
+        lua_pushinteger(L_VM, zoneIndex);                     
+        lua_pushinteger(L_VM, (zoneIndex % 2 == 0) ? 2 : 1);  
         
-        // Tell pcall to expect 2 arguments instead of 0
         if (lua_pcall(L_VM, 2, 0, 0) != LUA_OK) {
             Serial.printf("[LUA] Update Error (Zone %d): %s\n", zoneIndex, lua_tostring(L_VM, -1));
             lua_settop(L_VM, 0);
@@ -293,7 +316,7 @@ bool executeLuaFast(int scriptRef, int zoneIndex) {
         }
     } 
 
-    lua_settop(L_VM, 0); // Always exit with 0 stack
+    lua_settop(L_VM, 0); 
     return true;
 }
 
@@ -326,6 +349,10 @@ void initLua() {
 
     lua_register(L_VM, "log", l_debug_log);
     lua_register(L_VM, "millis", l_millis);
+    
+    // Register the stream reader
+    lua_pushcfunction(L_VM, l_get_stream_pixel); 
+    lua_setglobal(L_VM, "get_stream_pixel");
 
     lua_newtable(L_VM);
     lua_pushcfunction(L_VM, l_set_rgb);   lua_setfield(L_VM, -2, "set_rgb");

@@ -6,7 +6,7 @@
 Preferences prefs;
 Config config;
 
-const char* const EventNames[] = { "Idle", "Printing", "Heating Bed", "Heating Extruder", "Moving", "Error", "Shutdown" };
+const char* const EventNames[] = { "Idle", "Printing", "Heating Bed", "Heating Extruder", "Moving", "Error", "Shutdown", "Streaming" };
 
 void defaultConfig() {
   if (config.zones) { 
@@ -67,9 +67,9 @@ void loadConfig() {
   prefs.begin("klpro", false);
   uint32_t version = prefs.getUInt("cfgVer", 0);
   
-  if(version != 101) { 
+  if(version != 102) { 
     prefs.end();
-    Serial.println("[Config] No valid config found. Loading Defaults...");
+    Serial.println("[Config] No valid config found or version mismatch. Loading Defaults...");
     defaultConfig();
     saveConfig();
     return;
@@ -123,7 +123,7 @@ void loadConfig() {
 
 void saveConfig() {
   prefs.begin("klpro", false);
-  prefs.putUInt("cfgVer", 101);
+  prefs.putUInt("cfgVer", 102);
   prefs.putBytes("wifiSSID", config.wifiSSID, 32);
   prefs.putBytes("wifiPASS", config.wifiPASS, 64);
   prefs.putBytes("mHost", config.moonrakerHost, 64);

@@ -588,7 +588,7 @@
             clonedEvts = JSON.parse(JSON.stringify(templateZone.evts));
             clonedRev = templateZone.rev;
         } else {
-            clonedEvts = Array.from({length: 7}, () => ({ 
+            clonedEvts = Array.from({length: 8}, () => ({ 
                 fx: "Solid", r: 255, g: 255, b: 255, sp: 255, sz: 255, dl: 255, br: 255 
             }));
         }
@@ -877,7 +877,7 @@
         }, 4000);
     }
 
-    const EVENTS = ["Idle", "Start Print", "Bed Heating", "Extruder Heating", "Moving", "Error", "Disconnected"];
+    const EVENTS = ["Idle", "Start Print", "Bed Heating", "Extruder Heating", "Moving", "Error", "Disconnected", "Stream"];
     let sysConfig = { strips: [], zones: [] };
     let availableScripts = ["Solid"];
 
@@ -942,7 +942,12 @@
                 <div class="card">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                         <h3>Physical Strip #${i}</h3>
-                        <button class="btn-danger" style="padding:4px 10px;" onclick="removeStrip(${i})">Delete</button>
+                        <button class="btn-danger" 
+                            style="padding:4px 10px; ${i === 0 ? 'opacity: 0.5; cursor: not-allowed;' : ''}" 
+                            ${i === 0 ? 'disabled' : ''} 
+                            onclick="removeZone(${i})">
+                            Delete
+                        </button>
                     </div>
                 
                     <div style="height:12px; background:#111; border-radius:4px; margin-bottom:15px; display:flex; overflow:hidden; border:1px solid var(--border);">
@@ -1135,7 +1140,7 @@
     
     function addZone() { 
         sysConfig.zones.push({ sIdx: 0, start: 0, len: 60, rev: false, 
-            evts: Array.from({length: 6}, () => ({ fx: "Solid", r: 255, g: 255, b: 255, sp: 255, sz: 255, dl: 255, br: 255 })) 
+            evts: Array.from({length: 8}, () => ({ fx: "Solid", r: 255, g: 255, b: 255, sp: 255, sz: 255, dl: 255, br: 255 })) 
         }); 
         renderZones(); 
     }

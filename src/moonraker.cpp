@@ -3,6 +3,7 @@
 #include <ArduinoJson.h>
 #include <LittleFS.h>
 #include "config.h"
+#include "E131Receiver.h"
 
 char lastMoonrakerJson[2048] = ""; // Bumped to 2048 to prevent truncation
 extern EventType currentEvent;
@@ -12,6 +13,7 @@ extern float targetTemp;
 bool isMoonrakerConnected = false;
 unsigned long lastMoonrakerCheck = 0;
 
+extern E131Receiver streamReceiver;
 WebSocketsClient ws;
 
 void webuiInit();
@@ -24,7 +26,7 @@ void handleStatus(JsonObject s) {
         printState = s["print_stats"]["state"] | printState;
     }
 
-    // 2. Parse ALL Data Continuously (Never skip this!)
+    // 2. Parse ALL Data Continuously
     static float bedTemp = 0;
     static float bedTarget = 0;
     static float extTemp = 0;
@@ -49,42 +51,39 @@ void handleStatus(JsonObject s) {
             progress[0] = pos[0];
             progress[1] = pos[1];
             progress[2] = pos[2];
-            lastMoveTime = millis(); // Mark the exact moment of movement
+            lastMoveTime = millis(); 
         }
     }
 
     // 3. PRIORITY EVALUATION HIERARCHY
-    // Lock into Printing/Error states first. 
-    if (printState == "printing") {
+    if (streamReceiver.isStreaming()) {
+        currentEvent = EVT_STREAMING;
+    } 
+    else if (printState == "printing") {
         currentEvent = EVT_PRINTING;
     } 
     else if (printState == "error") {
         currentEvent = EVT_ERROR;
     } 
     else {
-        // Only evaluate background animations (Homing/Heating) if we aren't actively printing
         bool isHomingEvent = (millis() - lastMoveTime < 10000);
         bool isBedHeating = (bedTarget > 0 && bedTemp < bedTarget - 1.0f);
         bool isExtHeating = (extTarget > 0 && extTemp < extTarget - 1.0f);
 
         if (isHomingEvent) {
-            // Priority 1: Homing
             currentEvent = EVT_HOMING;
         } 
         else if (isBedHeating) {
-            // Priority 2: Heating Bed
             currentTemp = bedTemp;
             targetTemp = bedTarget;
             currentEvent = EVT_HEATING;
         } 
         else if (isExtHeating) {
-            // Priority 3: Heating Extruder
             currentTemp = extTemp;
             targetTemp = extTarget;
             currentEvent = EVT_HEATING_EXTRUDER;
         } 
         else {
-            // Priority 4: Idle
             currentEvent = EVT_IDLE;
         }
     }
@@ -101,7 +100,6 @@ void wsEvent(WStype_t t, uint8_t* payload, size_t len) {
         }
         case WStype_TEXT:
         {
-            // PROPER STRING FORMATTING FOR RAW PAYLOADS (%.*s restricts to 'len' to prevent WDT panics)
             snprintf(lastMoonrakerJson, sizeof(lastMoonrakerJson), "%.*s", len, (char*)payload);
             
             JsonDocument doc;
@@ -168,6 +166,7 @@ void netTask(void* pv) {
     
     if (wifiConnected) {
         moonrakerInit();
+        streamReceiver.begin();
     }
 
     while(true) {
@@ -181,9 +180,20 @@ void netTask(void* pv) {
             continue;
         }
 
-        // WebSocketsClient loop automatically handles pinging and reconnecting
         if (WiFi.status() == WL_CONNECTED) {
             ws.loop();
+            
+            // Constantly check streaming status independent of websocket payloads
+            static bool wasStreaming = false;
+            bool isStreaming = streamReceiver.isStreaming();
+            
+            if (isStreaming && currentEvent != EVT_STREAMING) {
+                currentEvent = EVT_STREAMING;
+                wasStreaming = true;
+            } else if (!isStreaming && wasStreaming) {
+                currentEvent = EVT_IDLE; // Fallback until next WS ping overwrites it
+                wasStreaming = false;
+            }
         }
         
         vTaskDelay(pdMS_TO_TICKS(10)); 
