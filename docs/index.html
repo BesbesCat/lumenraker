@@ -3,20 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lumenraker Web Installer</title>
+    <title>Lumenraker Installer</title>
     <style>
-        body { font-family: sans-serif; background-color: #121212; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .container { text-align: center; background: #1e1e1e; padding: 40px; border-radius: 12px; }
-        h1 { color: #00bcd4; }
-        p { margin-bottom: 30px; color: #aaa; }
+        body { font-family: sans-serif; background-color: #121212; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .container { text-align: center; background: #1e1e1e; padding: 40px; border-radius: 12px; max-width: 400px; width: 100%; }
+        h1 { color: #00bcd4; margin-bottom: 5px; }
+        p.subtitle { color: #aaa; font-size: 0.9em; margin-bottom: 25px; }
+        select { background: #2c2c2c; color: white; border: 1px solid #444; padding: 10px; border-radius: 6px; width: 100%; margin-bottom: 20px; font-size: 16px; cursor: pointer; }
+        a { color: #00bcd4; text-decoration: none; font-size: 0.9em; transition: color 0.2s; }
+        a:hover { color: #5eead4; }
+        .dl-section { margin-top: 30px; border-top: 1px solid #333; padding-top: 15px; text-align: left; }
+        .dl-link { margin-top: 8px; }
+        esp-web-install-button { margin-bottom: 20px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Lumenraker Installer</h1>
-        <p>Connect ESP32 via USB and click install.</p>
-        <esp-web-install-button manifest="manifest.json"></esp-web-install-button>
+        <h1>Lumenraker</h1>
+        <p class="subtitle">Select your board's physical flash size. The installer will auto-detect your chip architecture (ESP32 vs ESP32-S3).</p>
+        
+        <select id="flash-select">
+                <option value="manifest_4mb.json">4MB Flash</option>
+                <option value="manifest_8mb.json">8MB Flash</option>
+                <option value="manifest_16mb.json">16MB Flash</option>
+                <option value="manifest_32mb.json">32MB Flash</option>
+
+        </select>
+
+        <esp-web-install-button id="installer" manifest="manifest_4mb.json"></esp-web-install-button>
+        
+        <div class="dl-section">
+            <h4 style="margin:0 0 10px 0; color:#888;">Manual OTA Updates</h4>
+            <div class="dl-link"><a href="firmware/esp32s3_4mb/update.tar">Download esp32s3_4mb update.tar</a></div>
+            <div class="dl-link"><a href="firmware/esp32_4mb/update.tar">Download esp32_4mb update.tar</a></div>
+            <div class="dl-link"><a href="firmware/esp32s3_8mb/update.tar">Download esp32s3_8mb update.tar</a></div>
+            <div class="dl-link"><a href="firmware/esp32_8mb/update.tar">Download esp32_8mb update.tar</a></div>
+            <div class="dl-link"><a href="firmware/esp32s3_16mb/update.tar">Download esp32s3_16mb update.tar</a></div>
+            <div class="dl-link"><a href="firmware/esp32_16mb/update.tar">Download esp32_16mb update.tar</a></div>
+            <div class="dl-link"><a href="firmware/esp32s3_32mb/update.tar">Download esp32s3_32mb update.tar</a></div>
+            <div class="dl-link"><a href="firmware/esp32_32mb/update.tar">Download esp32_32mb update.tar</a></div>
+
+        </div>
     </div>
+
     <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+    <script>
+        const select = document.getElementById('flash-select');
+        const installer = document.getElementById('installer');
+        select.addEventListener('change', (e) => {
+            installer.setAttribute('manifest', e.target.value);
+        });
+    </script>
 </body>
 </html>

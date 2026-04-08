@@ -1,27 +1,36 @@
 #include <lualib.h>
 #include <lauxlib.h>
 #include <LittleFS.h>
+#include <Arduino.h>
 #include "config.h"
 #include "lua_engine.h"
+
+// === AUTO-DETECT PSRAM ALLOCATOR ===
+#if defined(BOARD_HAS_PSRAM)
+    #define SAFE_ALLOC(sz) (psramFound() ? ps_malloc(sz) : malloc(sz))
+#else
+    #define SAFE_ALLOC(sz) malloc(sz)
+#endif
+// ===================================
 
 extern char lastMoonrakerJson[1024];
 extern volatile EventType currentEvent;
 extern EventType lastGlobalEvent;
-extern int cachedScriptRef[];
+extern int* cachedScriptRef;
 
 float progress[16];
 float currentTemp;
 float targetTemp;
 
 extern CRGB** universeMap;
-extern CRGB* streamBuffer; // The new background buffer
+extern CRGB* streamBuffer; 
 extern uint16_t totalUniverseLeds;
 extern uint16_t currentZoneStart;
 extern uint16_t currentCount;
 extern bool ledsDirty;
 
 lua_State* L_VM = nullptr;
-extern String lastLuaDebug = "";
+String lastLuaDebug = "";
 
 static int* last_bound_script = nullptr;
 static EventType* last_event = nullptr;
@@ -36,7 +45,7 @@ bool compileLuaScript(const char* srcPath, const char* dstPath) {
     if (!f) return false;
     
     size_t size = f.size();
-    char* buf = (char*)malloc(size);
+    char* buf = (char*)SAFE_ALLOC(size);
     if (!buf) { f.close(); return false; }
     f.readBytes(buf, size);
     f.close();
@@ -108,7 +117,7 @@ int IRAM_ATTR l_clear(lua_State* L) {
     if (!universeMap || currentCount == 0) return 0;
     for (int i = 0; i < currentCount; i++) {
         uint16_t global_i = currentZoneStart + i;
-        if (global_i < totalUniverseLeds) {
+        if (global_i < totalUniverseLeds && universeMap[global_i]) {
             *(universeMap[global_i]) = CRGB(0, 0, 0);
         }
     }
@@ -122,7 +131,7 @@ int l_set_hsv(lua_State* L) {
     if (currentReversed) i = (currentCount - 1) - i;
     
     uint16_t global_i = currentZoneStart + i;
-    if (global_i < totalUniverseLeds) {
+    if (global_i < totalUniverseLeds && universeMap[global_i]) {
         
         uint8_t h = lua_tointeger(L, 2) & 255; 
         uint8_t s = lua_tointeger(L, 3) & 255;
@@ -161,7 +170,7 @@ int IRAM_ATTR l_set_rgb(lua_State* L) {
     if (currentReversed) i = (currentCount - 1) - i;
     
     uint16_t global_i = currentZoneStart + i;
-    if (global_i < totalUniverseLeds) {
+    if (global_i < totalUniverseLeds && universeMap[global_i]) {
         *(universeMap[global_i]) = CRGB(
             luaL_checkinteger(L, 2),
             luaL_checkinteger(L, 3),
@@ -178,7 +187,7 @@ int IRAM_ATTR l_fade(lua_State* L) {
     
     for (int i = 0; i < currentCount; i++) {
         uint16_t global_i = currentZoneStart + i;
-        if (global_i < totalUniverseLeds) {
+        if (global_i < totalUniverseLeds && universeMap[global_i]) {
             CRGB* pixel = universeMap[global_i];
             pixel->r = (pixel->r * fadeAmount) >> 8;
             pixel->g = (pixel->g * fadeAmount) >> 8;
@@ -268,13 +277,15 @@ int IRAM_ATTR l_get_json(lua_State* L) {
 bool executeLuaFast(int scriptRef, int zoneIndex) {
     if (!L_VM || zoneIndex >= config.zoneCount) return false;
 
-    // 1. Wipe the stack clean so previous errors don't cascade
     lua_settop(L_VM, 0); 
-
     lua_getglobal(L_VM, "zone_updates"); 
     
-    bool needs_rebind = (last_bound_script[zoneIndex] != scriptRef) || 
-                        (last_event[zoneIndex] != lastGlobalEvent);
+    bool needs_rebind = false;
+    if (last_bound_script && last_event) {
+        needs_rebind = (last_bound_script[zoneIndex] != scriptRef) || (last_event[zoneIndex] != lastGlobalEvent);
+    } else {
+        needs_rebind = true;
+    }
 
     if (needs_rebind) {
         lua_pushnil(L_VM);
@@ -293,8 +304,8 @@ bool executeLuaFast(int scriptRef, int zoneIndex) {
             lua_pushvalue(L_VM, -1); 
             lua_rawseti(L_VM, 1, zoneIndex); 
             
-            last_bound_script[zoneIndex] = scriptRef;
-            last_event[zoneIndex] = lastGlobalEvent; 
+            if (last_bound_script) last_bound_script[zoneIndex] = scriptRef;
+            if (last_event) last_event[zoneIndex] = lastGlobalEvent; 
         } else {
             lua_pushnil(L_VM);
             lua_rawseti(L_VM, 1, zoneIndex); 
@@ -323,8 +334,10 @@ bool executeLuaFast(int scriptRef, int zoneIndex) {
 void initLua() {
     if (L_VM) {
         lua_close(L_VM);
-        for (int i = 0; i < config.zoneCount; i++) {
-            cachedScriptRef[i] = LUA_NOREF;
+        if (cachedScriptRef) {
+            for (int i = 0; i < config.zoneCount; i++) {
+                cachedScriptRef[i] = LUA_NOREF;
+            }
         }
     }
 
@@ -333,15 +346,15 @@ void initLua() {
 
     checkAndCompileAllScripts();
 
-    if (last_bound_script) delete[] last_bound_script;
-    if (last_event) delete[] last_event;
+    if (last_bound_script) free(last_bound_script);
+    if (last_event) free(last_event);
 
-    last_bound_script = new int[config.zoneCount];
-    last_event = new EventType[config.zoneCount];
+    last_bound_script = (int*)SAFE_ALLOC(config.zoneCount * sizeof(int));
+    last_event = (EventType*)SAFE_ALLOC(config.zoneCount * sizeof(EventType));
 
     for(int i=0; i < config.zoneCount; i++) {
-        last_bound_script[i] = -1;
-        last_event[i] = (EventType)-1;
+        if (last_bound_script) last_bound_script[i] = -1;
+        if (last_event) last_event[i] = (EventType)-1;
     }
 
     lua_newtable(L_VM);
@@ -350,7 +363,6 @@ void initLua() {
     lua_register(L_VM, "log", l_debug_log);
     lua_register(L_VM, "millis", l_millis);
     
-    // Register the stream reader
     lua_pushcfunction(L_VM, l_get_stream_pixel); 
     lua_setglobal(L_VM, "get_stream_pixel");
 

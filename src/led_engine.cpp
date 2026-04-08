@@ -1,8 +1,17 @@
 #include <NeoPixelBus.h>
 #include <LittleFS.h>
+#include <Arduino.h>
 #include "config.h"
 #include "lua_engine.h"
 #include "E131Receiver.h" 
+
+// === AUTO-DETECT PSRAM ALLOCATOR ===
+#if defined(BOARD_HAS_PSRAM)
+    #define SAFE_ALLOC(sz) (psramFound() ? ps_malloc(sz) : malloc(sz))
+#else
+    #define SAFE_ALLOC(sz) malloc(sz)
+#endif
+// ===================================
 
 class StripWrapper {
 public:
@@ -46,7 +55,7 @@ const EffectConfig* current_lua_config = nullptr;
 int currentFPS = 0;
 
 CRGB* snapshotBuffer = nullptr;
-CRGB* streamBuffer = nullptr; // <--- The hidden UDP buffer
+CRGB* streamBuffer = nullptr; 
 
 EventType lastGlobalEvent = EVT_IDLE;
 unsigned long fadeStartTime = 0;
@@ -102,56 +111,57 @@ void getKelvinRGB(int kelvin, uint8_t &r, uint8_t &g, uint8_t &b) {
 }
 
 void allocateBuffers() {
-    if (universeMap) { delete[] universeMap; universeMap = nullptr; }
-    if (snapshotBuffer) { delete[] snapshotBuffer; snapshotBuffer = nullptr; }
-    if (streamBuffer) { delete[] streamBuffer; streamBuffer = nullptr; }
+    if (universeMap) { free(universeMap); universeMap = nullptr; }
+    if (snapshotBuffer) { free(snapshotBuffer); snapshotBuffer = nullptr; }
+    if (streamBuffer) { free(streamBuffer); streamBuffer = nullptr; }
 
     for (int i = 0; i < MAX_STRIPS; i++) {
-        if (stripBuffers[i]) { delete[] stripBuffers[i]; stripBuffers[i] = nullptr; }
+        if (stripBuffers[i]) { free(stripBuffers[i]); stripBuffers[i] = nullptr; }
     }
     
     totalUniverseLeds = 0;
     for (int i = 0; i < config.stripCount; i++) {
         int c = config.strips[i].count;
         if (c > 0) {
-            stripBuffers[i] = new CRGB[c];
+            stripBuffers[i] = (CRGB*)SAFE_ALLOC(c * sizeof(CRGB));
+            if (stripBuffers[i]) memset(stripBuffers[i], 0, c * sizeof(CRGB));
             totalUniverseLeds += c;
         }
     }
     
     if (totalUniverseLeds > 0) {
-        universeMap = new CRGB*[totalUniverseLeds];
-        snapshotBuffer = new CRGB[totalUniverseLeds];
-        streamBuffer = new CRGB[totalUniverseLeds];
+        universeMap = (CRGB**)SAFE_ALLOC(totalUniverseLeds * sizeof(CRGB*));
+        snapshotBuffer = (CRGB*)SAFE_ALLOC(totalUniverseLeds * sizeof(CRGB));
+        streamBuffer = (CRGB*)SAFE_ALLOC(totalUniverseLeds * sizeof(CRGB));
         
-        uint16_t mapIndex = 0;
-        for (int i = 0; i < config.stripCount; i++) {
-            int c = config.strips[i].count;
-            for (int j = 0; j < c; j++) {
-                universeMap[mapIndex++] = &stripBuffers[i][j];
+        if (universeMap) {
+            uint16_t mapIndex = 0;
+            for (int i = 0; i < config.stripCount; i++) {
+                int c = config.strips[i].count;
+                for (int j = 0; j < c; j++) {
+                    universeMap[mapIndex++] = &stripBuffers[i][j];
+                }
             }
         }
-        memset(snapshotBuffer, 0, totalUniverseLeds * sizeof(CRGB));
-        memset(streamBuffer, 0, totalUniverseLeds * sizeof(CRGB));
+        if (snapshotBuffer) memset(snapshotBuffer, 0, totalUniverseLeds * sizeof(CRGB));
+        if (streamBuffer) memset(streamBuffer, 0, totalUniverseLeds * sizeof(CRGB));
     }
 
-    if (cachedScriptRef) delete[] cachedScriptRef;
-    if (cachedPath) delete[] cachedPath;
+    if (cachedScriptRef) free(cachedScriptRef);
+    if (cachedPath) free(cachedPath);
 
-    cachedScriptRef = new int[config.zoneCount];
-    cachedPath = new char[config.zoneCount][64];
+    cachedScriptRef = (int*)SAFE_ALLOC(config.zoneCount * sizeof(int));
+    cachedPath = (char(*)[64])SAFE_ALLOC(config.zoneCount * 64);
 
     for (int i = 0; i < config.zoneCount; i++) {
-        cachedScriptRef[i] = LUA_NOREF;
-        memset(cachedPath[i], 0, 64);
+        if (cachedScriptRef) cachedScriptRef[i] = LUA_NOREF;
+        if (cachedPath) memset(cachedPath[i], 0, 64);
     }
 }
 
-// Maps incoming DMX bytes to the hidden background stream buffer
 void handleStreamData(uint16_t universe, uint8_t* dmxData, uint16_t length) {
     if (!streamBuffer || totalUniverseLeds == 0) return;
 
-    // Hardcoded 170
     uint16_t startLedIndex = (universe - 1) * 170; 
     uint16_t ledsInPacket = length / 3;
 
@@ -175,18 +185,30 @@ void ledsInit() {
         
         if (hwStrips[i]) { delete hwStrips[i]; hwStrips[i] = nullptr; }
 
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
         switch (i) {
-            case 0: hwStrips[i] = new StripImpl<NeoEsp32I2s0800KbpsMethod>(c, p); break;
-            case 1: hwStrips[i] = new StripImpl<NeoEsp32I2s1800KbpsMethod>(c, p); break;
-            case 2: hwStrips[i] = new StripImpl<NeoEsp32Rmt0800KbpsMethod>(c, p); break;
-            case 3: hwStrips[i] = new StripImpl<NeoEsp32Rmt1800KbpsMethod>(c, p); break;
-            case 4: hwStrips[i] = new StripImpl<NeoEsp32Rmt2800KbpsMethod>(c, p); break;
-            case 5: hwStrips[i] = new StripImpl<NeoEsp32Rmt3800KbpsMethod>(c, p); break;
-            case 6: hwStrips[i] = new StripImpl<NeoEsp32Rmt4800KbpsMethod>(c, p); break;
-            case 7: hwStrips[i] = new StripImpl<NeoEsp32Rmt5800KbpsMethod>(c, p); break;
-            case 8: hwStrips[i] = new StripImpl<NeoEsp32Rmt6800KbpsMethod>(c, p); break;
-            case 9: hwStrips[i] = new StripImpl<NeoEsp32Rmt7800KbpsMethod>(c, p); break;
+            case 0: hwStrips[i] = new StripImpl<NeoEsp32Rmt0800KbpsMethod>(c, p); break;
+            case 1: hwStrips[i] = new StripImpl<NeoEsp32Rmt1800KbpsMethod>(c, p); break;
+            case 2: hwStrips[i] = new StripImpl<NeoEsp32Rmt2800KbpsMethod>(c, p); break;
+            case 3: hwStrips[i] = new StripImpl<NeoEsp32Rmt3800KbpsMethod>(c, p); break;
         }
+
+#elif defined(CONFIG_IDF_TARGET_ESP32)
+        switch (i) {
+            case 0: hwStrips[i] = new StripImpl<NeoEsp32Rmt0800KbpsMethod>(c, p); break;
+            case 1: hwStrips[i] = new StripImpl<NeoEsp32Rmt1800KbpsMethod>(c, p); break;
+            case 2: hwStrips[i] = new StripImpl<NeoEsp32Rmt2800KbpsMethod>(c, p); break;
+            case 3: hwStrips[i] = new StripImpl<NeoEsp32Rmt3800KbpsMethod>(c, p); break;
+            case 4: hwStrips[i] = new StripImpl<NeoEsp32Rmt4800KbpsMethod>(c, p); break;
+            case 5: hwStrips[i] = new StripImpl<NeoEsp32Rmt5800KbpsMethod>(c, p); break;
+            case 6: hwStrips[i] = new StripImpl<NeoEsp32Rmt6800KbpsMethod>(c, p); break;
+            case 7: hwStrips[i] = new StripImpl<NeoEsp32Rmt7800KbpsMethod>(c, p); break;
+            case 8: hwStrips[i] = new StripImpl<NeoEsp32I2s0800KbpsMethod>(c, p); break;
+            case 9: hwStrips[i] = new StripImpl<NeoEsp32I2s1800KbpsMethod>(c, p); break;
+        }
+#else
+        #error "Unsupported ESP32 architecture! Please add bindings to ledsInit()."
+#endif
 
         if (hwStrips[i]) {
             hwStrips[i]->Begin();
@@ -201,7 +223,6 @@ void ledTask(void* pv) {
     unsigned long lastGCTime = lastFpsTime;
     int frameCount = 0;
 
-    // --- SHADOW LOADING ARCHITECTURE ---
     static EventType targetEvent = currentEvent;
     static bool isShadowLoading = false;
     static int loadZoneIndex = 0;
@@ -228,7 +249,6 @@ void ledTask(void* pv) {
         bool triggerFadeClock = false;
         ledsDirty = false;
 
-        // --- 1. DETECT EVENT CHANGE OR FORCE RELOAD ---
         if (currentEvent != targetEvent || forceReload) {
             targetEvent = currentEvent;
             if(wbReload == true) {
@@ -250,7 +270,6 @@ void ledTask(void* pv) {
             loadZoneIndex = 0;
         }
 
-        // --- 2. BACKGROUND SHADOW LOADING ---
         if (isShadowLoading) {
             if (loadZoneIndex < config.zoneCount) {
                 int i = loadZoneIndex;
@@ -267,7 +286,7 @@ void ledTask(void* pv) {
                     if (f) {
                         size_t sz = f.size();
                         if (sz > 0) {
-                            shadowBuffers[i].data = (char*)malloc(sz);
+                            shadowBuffers[i].data = (char*)SAFE_ALLOC(sz);
                             if (shadowBuffers[i].data) {
                                 f.readBytes(shadowBuffers[i].data, sz);
                                 shadowBuffers[i].size = sz;
@@ -295,7 +314,6 @@ void ledTask(void* pv) {
                             newScriptRef = luaL_ref(L_VM, LUA_REGISTRYINDEX); 
                             strncpy(cachedPath[i], shadowBuffers[i].path, 64);
                             loadSuccess = true;
-                            Serial.printf("[LUA]: Swapped %s from RAM\n", shadowBuffers[i].path);
                         } else {
                             Serial.printf("[LUA] RAM Load Error: %s\n", lua_tostring(L_VM, -1));
                             lua_pop(L_VM, 1);
@@ -304,18 +322,18 @@ void ledTask(void* pv) {
                         shadowBuffers[i].data = nullptr;
                     }
 
-                    if (cachedScriptRef[i] != LUA_NOREF) {
+                    if (cachedScriptRef && cachedScriptRef[i] != LUA_NOREF) {
                         luaL_unref(L_VM, LUA_REGISTRYINDEX, cachedScriptRef[i]);
                     }
                     
-                    cachedScriptRef[i] = newScriptRef;
+                    if (cachedScriptRef) cachedScriptRef[i] = newScriptRef;
 
                     if (!loadSuccess) {
-                        memset(cachedPath[i], 0, 64);
+                        if (cachedPath) memset(cachedPath[i], 0, 64);
                         Zone &z = config.zones[i];
                         for (int j = 0; j < z.length; j++) {
                             int ledIdx = z.start + j;
-                            if (ledIdx < totalUniverseLeds && universeMap[ledIdx]) {
+                            if (ledIdx < totalUniverseLeds && universeMap && universeMap[ledIdx]) {
                                 *universeMap[ledIdx] = CRGB{0, 0, 0};
                             }
                         }
@@ -332,7 +350,6 @@ void ledTask(void* pv) {
             }
         }
 
-        // --- 3. EXECUTE LUA ALWAYS ---
         for (int i = 0; i < config.zoneCount; i++) {
             Zone &z = config.zones[i];
             EffectConfig &ef = z.events[lastGlobalEvent]; 
@@ -342,7 +359,7 @@ void ledTask(void* pv) {
             currentReversed = z.reversed;
             current_lua_config = &ef;
 
-            if (cachedScriptRef[i] != LUA_NOREF) {                
+            if (cachedScriptRef && cachedScriptRef[i] != LUA_NOREF) {                
                 executeLuaFast(cachedScriptRef[i], i);
             }
             current_lua_config = nullptr;
@@ -352,7 +369,6 @@ void ledTask(void* pv) {
             showNeeded = true;
         }
 
-        // --- 4. FADE LOGIC ---
         if (triggerFadeClock) {
             fadeStartTime = millis();
         }
@@ -373,7 +389,6 @@ void ledTask(void* pv) {
             }
         }
 
-        // --- 5. HARDWARE RENDER ---
         if (showNeeded) {
             for (int i = 0; i < config.stripCount; i++) {
                 if (hwStrips[i]) {
@@ -418,7 +433,6 @@ void ledTask(void* pv) {
             frameCount++;
         }
 
-        // --- 6. HOUSEKEEPING ---
         unsigned long currentMillis = millis();
         if (currentMillis - lastGCTime >= 60000) {
             if (L_VM) { lua_gc(L_VM, LUA_GCCOLLECT, 0); } 

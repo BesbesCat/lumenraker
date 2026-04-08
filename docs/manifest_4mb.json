@@ -1,0 +1,49 @@
+{
+  "name": "Lumenraker (4MB)",
+  "version": "0.0.8-alpha",
+  "home_assistant_domain": "lumenraker",
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        {
+          "path": "firmware/esp32s3_4mb/bootloader.bin",
+          "offset": 0
+        },
+        {
+          "path": "firmware/esp32s3_4mb/partitions.bin",
+          "offset": 32768
+        },
+        {
+          "path": "firmware/esp32s3_4mb/firmware.bin",
+          "offset": 65536
+        },
+        {
+          "path": "firmware/esp32s3_4mb/littlefs.bin",
+          "offset": 3211264
+        }
+      ]
+    },
+    {
+      "chipFamily": "ESP32",
+      "parts": [
+        {
+          "path": "firmware/esp32_4mb/bootloader.bin",
+          "offset": 4096
+        },
+        {
+          "path": "firmware/esp32_4mb/partitions.bin",
+          "offset": 32768
+        },
+        {
+          "path": "firmware/esp32_4mb/firmware.bin",
+          "offset": 65536
+        },
+        {
+          "path": "firmware/esp32_4mb/littlefs.bin",
+          "offset": 3211264
+        }
+      ]
+    }
+  ]
+}
