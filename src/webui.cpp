@@ -373,6 +373,8 @@ void handleGetSysInfo(AsyncWebServerRequest *request) {
     doc["heap_free"] = ESP.getFreeHeap();
     doc["heap_total"] = ESP.getHeapSize();
     doc["heap_min"] = ESP.getMinFreeHeap();
+    doc["psram_total"] = ESP.getPsramSize();
+    doc["psram_free"] = ESP.getFreePsram();
     doc["fs_used"] = cachedFsUsed;
     doc["fs_total"] = cachedFsTotal;
     doc["uptime"] = millis() / 1000;

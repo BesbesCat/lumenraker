@@ -13,6 +13,8 @@
 #endif
 // ===================================
 
+#define MAX_PALETTE_COLORS 16
+
 extern char lastMoonrakerJson[1024];
 extern volatile EventType currentEvent;
 extern EventType lastGlobalEvent;
@@ -122,6 +124,207 @@ int IRAM_ATTR l_clear(lua_State* L) {
         }
     }
     ledsDirty = true;
+    return 0;
+}
+
+void hsv2rgb(uint8_t h, uint8_t s, uint8_t v, uint8_t &r, uint8_t &g, uint8_t &b) {
+    if (s == 0) { r = g = b = v; return; }
+    uint8_t region = h / 43;
+    uint8_t remainder = (h - (region * 43)) * 6; 
+    uint8_t p = (v * (255 - s)) >> 8;
+    uint8_t q = (v * (255 - ((s * remainder) >> 8))) >> 8;
+    uint8_t t = (v * (255 - ((s * (255 - remainder)) >> 8))) >> 8;
+    switch (region) {
+        case 0: r = v; g = t; b = p; break;
+        case 1: r = q; g = v; b = p; break;
+        case 2: r = p; g = v; b = t; break;
+        case 3: r = p; g = q; b = v; break;
+        case 4: r = t; g = p; b = v; break;
+        default: r = v; g = p; b = q; break;
+    }
+}
+
+inline uint8_t blend8(uint8_t c1, uint8_t c2, uint16_t fract) {
+    int32_t val = (int32_t)c1 * (256 - fract) + (int32_t)c2 * fract;
+    return (uint8_t)(val / 256);
+}
+
+inline uint8_t ease8InOutQuad(uint8_t f) {
+    if (f < 128) {
+        return (uint16_t)(f * f) >> 7; 
+    } else {
+        uint8_t inv = 255 - f;
+        return 255 - ((uint16_t)(inv * inv) >> 7);
+    }
+}
+
+int IRAM_ATTR l_fill_palette(lua_State* L) {
+    if (!universeMap || currentCount == 0) return 0;
+    if (!lua_istable(L, 1)) return 0; 
+    
+    float offset = luaL_checknumber(L, 2);
+    float size_step = luaL_checknumber(L, 3);
+    uint8_t br = luaL_checkinteger(L, 4) & 255;
+
+    int start_pixel = luaL_optinteger(L, 5, 0);
+    int end_pixel = luaL_optinteger(L, 6, currentCount - 1);
+    uint8_t smooth_val = luaL_optinteger(L, 7, 0); 
+    uint8_t dither_amount = luaL_optinteger(L, 8, 0); 
+    
+    bool is_cyclic = true;
+    if (lua_gettop(L) >= 9 && !lua_isnil(L, 9)) {
+        is_cyclic = lua_toboolean(L, 9);
+    }
+
+    if (start_pixel < 0) start_pixel = 0;
+    if (start_pixel >= currentCount) start_pixel = currentCount - 1;
+    if (end_pixel < 0) end_pixel = 0;
+    if (end_pixel >= currentCount) end_pixel = currentCount - 1;
+
+    uint8_t r[MAX_PALETTE_COLORS] = {0};
+    uint8_t g[MAX_PALETTE_COLORS] = {0};
+    uint8_t b[MAX_PALETTE_COLORS] = {0};
+    float weights[MAX_PALETTE_COLORS] = {0.0f};
+    
+    int num_colors = 0;
+
+    lua_pushnil(L);
+    while (lua_next(L, 1) != 0 && num_colors < MAX_PALETTE_COLORS) {
+        if (lua_istable(L, -1)) {
+            lua_rawgeti(L, -1, 1); r[num_colors] = lua_tointeger(L, -1); lua_pop(L, 1);
+            lua_rawgeti(L, -1, 2); g[num_colors] = lua_tointeger(L, -1); lua_pop(L, 1);
+            lua_rawgeti(L, -1, 3); b[num_colors] = lua_tointeger(L, -1); lua_pop(L, 1);
+            lua_rawgeti(L, -1, 4); weights[num_colors] = lua_tonumber(L, -1); lua_pop(L, 1);
+            num_colors++;
+        }
+        lua_pop(L, 1);
+    }
+
+    if (num_colors == 0) return 0;
+
+    float total_weight = 0;
+    int active_weights = is_cyclic ? num_colors : (num_colors > 1 ? num_colors - 1 : 1);
+    for (int i = 0; i < active_weights; i++) {
+        total_weight += weights[i];
+    }
+    if (total_weight <= 0.0f) total_weight = 1.0f;
+
+    uint16_t start_pos[MAX_PALETTE_COLORS];
+    float current_acc = 0;
+    for (int i = 0; i < num_colors; i++) {
+        if (!is_cyclic && i == num_colors - 1) {
+            start_pos[i] = 65535;
+        } else {
+            start_pos[i] = (uint16_t)((current_acc / total_weight) * 65535.0f);
+            current_acc += weights[i];
+        }
+    }
+
+    float safe_offset = fmod(offset, 1.0f);
+    if (safe_offset < 0) safe_offset += 1.0f;
+    
+    uint32_t pos = (uint32_t)(safe_offset * 65536.0f);
+    uint32_t size_fp = (uint32_t)(size_step * 65536.0f);
+
+    int step = (start_pixel <= end_pixel) ? 1 : -1;
+    int loop_count = abs(end_pixel - start_pixel) + 1;
+    int current_p = start_pixel;
+    uint32_t t_ms = millis(); 
+
+    for (int i = 0; i < loop_count; i++) {
+        int mapped_i = currentReversed ? (currentCount - 1) - current_p : current_p;
+        uint16_t global_i = currentZoneStart + mapped_i;
+        
+        uint16_t current_pos;
+        if (is_cyclic) {
+            current_pos = pos % 65536;
+        } else {
+            current_pos = (pos >= 65535) ? 65535 : (uint16_t)pos;
+        }
+
+        if (global_i < totalUniverseLeds && universeMap[global_i]) {
+            int idx = 0;
+            for (int j = 0; j < num_colors; j++) {
+                if (current_pos >= start_pos[j]) idx = j;
+            }
+            
+            int next_idx;
+            if (is_cyclic) {
+                next_idx = (idx + 1) % num_colors;
+            } else {
+                next_idx = (idx + 1 < num_colors) ? idx + 1 : idx;
+            }
+            
+            uint16_t seg_start = start_pos[idx];
+            uint16_t seg_end = (is_cyclic && next_idx == 0) ? 0 : start_pos[next_idx]; 
+            
+            uint32_t seg_len;
+            if (is_cyclic && next_idx == 0) {
+                seg_len = 65536 - seg_start;
+            } else {
+                seg_len = (seg_end >= seg_start) ? (seg_end - seg_start) : 1;
+            }
+            if (seg_len == 0) seg_len = 1; 
+
+            uint32_t offset_in_seg = (current_pos >= seg_start) ? (current_pos - seg_start) : 0;
+            uint16_t fract = (offset_in_seg << 8) / seg_len; 
+            if (fract > 255) fract = 255;
+
+            if (dither_amount > 0) {
+                uint8_t noise = (global_i * 73 + (t_ms / 16)) & 255; 
+                int16_t dither_val = ((noise * dither_amount) >> 8) - (dither_amount >> 1);
+                int new_fract = fract + dither_val;
+                fract = (new_fract < 0) ? 0 : ((new_fract > 255) ? 255 : new_fract);
+            }
+
+            if (smooth_val > 0) {
+                uint8_t eased = ease8InOutQuad((uint8_t)fract);
+                fract = fract + (((int32_t)eased - fract) * smooth_val) / 255;
+            }
+
+            uint8_t r_blend = blend8(r[idx], r[next_idx], fract);
+            uint8_t g_blend = blend8(g[idx], g[next_idx], fract);
+            uint8_t b_blend = blend8(b[idx], b[next_idx], fract);
+
+            r_blend = (r_blend * br) >> 8;
+            g_blend = (g_blend * br) >> 8;
+            b_blend = (b_blend * br) >> 8;
+
+            *(universeMap[global_i]) = CRGB(r_blend, g_blend, b_blend);
+        }
+        
+        pos += size_fp; 
+        current_p += step; 
+    }
+    
+    ledsDirty = true;
+    return 0;
+}
+
+int IRAM_ATTR l_scale_pixel(lua_State* L) {
+    if (!universeMap || currentCount == 0) return 0;
+    
+    int i = luaL_checkinteger(L, 1);
+    uint8_t target_lum = luaL_checkinteger(L, 2) & 255;
+    
+    uint8_t dither = luaL_optinteger(L, 3, 0); 
+
+    uint16_t global_i = currentZoneStart + (currentReversed ? (currentCount - 1) - i : i);
+
+    if (global_i < totalUniverseLeds && universeMap[global_i]) {
+        uint16_t scale = target_lum;
+
+        if (dither > 0 && target_lum > 0 && target_lum < 255) {
+            uint8_t noise = (global_i * 73 + (millis() / 16)) & 255;
+            int16_t dither_val = ((noise * dither) >> 8) - (dither >> 1);
+            int new_scale = target_lum + dither_val;
+            scale = (new_scale < 0) ? 0 : ((new_scale > 255) ? 255 : new_scale);
+        }
+
+        universeMap[global_i]->r = ((uint16_t)universeMap[global_i]->r * scale + 127) / 255;
+        universeMap[global_i]->g = ((uint16_t)universeMap[global_i]->g * scale + 127) / 255;
+        universeMap[global_i]->b = ((uint16_t)universeMap[global_i]->b * scale + 127) / 255;
+    }
     return 0;
 }
 
@@ -369,6 +572,8 @@ void initLua() {
     lua_newtable(L_VM);
     lua_pushcfunction(L_VM, l_set_rgb);   lua_setfield(L_VM, -2, "set_rgb");
     lua_pushcfunction(L_VM, l_set_hsv);   lua_setfield(L_VM, -2, "set_hsv");
+    lua_pushcfunction(L_VM, l_fill_palette);  lua_setfield(L_VM, -2, "fill_palette");
+    lua_pushcfunction(L_VM, l_scale_pixel);  lua_setfield(L_VM, -2, "scale_pixel");
     lua_pushcfunction(L_VM, l_get_count); lua_setfield(L_VM, -2, "get_count");
     lua_pushcfunction(L_VM, l_clear);     lua_setfield(L_VM, -2, "clear");
     lua_pushcfunction(L_VM, l_fade);      lua_setfield(L_VM, -2, "fade");

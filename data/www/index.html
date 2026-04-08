@@ -256,7 +256,7 @@
                     <td>Current Framerate <div class="tooltip"><span class="info-icon">?</span><span class="tooltiptext">The actual frames per second being pushed to the LED strips.</span></div></td>
                     <td id="stat-fps">0 FPS</td>
                 </tr>
-                <tr>
+<tr>
                     <td>
                         RAM Usage 
                         <div class="tooltip"><span class="info-icon">?</span><span class="tooltiptext">Memory currently used. Trend line shows the last 60 minutes of activity.</span></div>
@@ -264,11 +264,23 @@
                     <td>
                         <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
                             <span id="stat-ram">0 / 0 KB</span>
-                            <svg class="sparkline" width="100px" height="30" stroke-width="2" stroke="var(--accent)" fill="rgba(255, 102, 0, 0.1)"></svg>
+                            <svg id="spark-ram" class="sparkline" width="100px" height="30" stroke-width="2" stroke="var(--accent)" fill="rgba(255, 102, 0, 0.1)"></svg>
                         </div>
                     </td>
                 </tr>
-        <tr>
+                <tr id="row-psram" style="display: none;">
+                    <td>
+                        PSRAM Usage 
+                        <div class="tooltip"><span class="info-icon">?</span><span class="tooltiptext">External Memory currently used. Trend line shows the last 60 minutes of activity.</span></div>
+                    </td>
+                    <td>
+                        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
+                            <span id="stat-psram">0 / 0 KB</span>
+                            <svg id="spark-psram" class="sparkline" width="100px" height="30" stroke-width="2" stroke="var(--accent)" fill="rgba(255, 102, 0, 0.1)"></svg>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
                     <td>Min Free Heap <div class="tooltip"><span class="info-icon">?</span><span class="tooltiptext">The absolute lowest amount of free RAM recorded since the last reboot.</span></div></td>
                     <td id="stat-min-heap">0 KB</td>
                 </tr>
@@ -373,8 +385,9 @@
 
 <script>
     let editor = null; // Stays null if Ace fails to load
-    let warningThrottles = { ram: false, fs: false };
+    let warningThrottles = { ram: false, fs: false, psram: false }; // ADDED PSRAM
     let heapHistory = [];
+    let psramHistory = []; // NEW
     const MAX_HISTORY = 180;
     let debugInterval = null;
     let lastDebugMsg = "";
@@ -777,9 +790,9 @@
             heapHistory.push(ramUsed);
             if (heapHistory.length > MAX_HISTORY) heapHistory.shift();
 
-            // Safely update sparkline if loaded
-            const sparkElement = document.querySelector(".sparkline");
-            if (typeof sparkline !== 'undefined' && sparkline.sparkline) {
+// Safely update sparkline if loaded
+            const sparkElement = document.getElementById("spark-ram");
+            if (typeof sparkline !== 'undefined' && sparkline.sparkline && sparkElement) {
                 sparkline.sparkline(sparkElement, heapHistory);
             }
 
@@ -792,6 +805,36 @@
             } else {
                 ramEl.classList.remove('text-warning');
                 warningThrottles.ram = false;
+            }
+
+            if (sys.psram_total && sys.psram_total > 0) {
+                document.getElementById('row-psram').style.display = 'table-row';
+                
+                const psramUsed = sys.psram_total - sys.psram_free;
+                const psramPct = (psramUsed / sys.psram_total) * 100;
+                const psramEl = document.getElementById('stat-psram');
+                psramEl.innerText = `${Math.round(psramUsed / 1024)} / ${Math.round(sys.psram_total / 1024)} KB`;
+
+                psramHistory.push(psramUsed);
+                if (psramHistory.length > MAX_HISTORY) psramHistory.shift();
+
+                const psramSpark = document.getElementById("spark-psram");
+                if (typeof sparkline !== 'undefined' && sparkline.sparkline && psramSpark) {
+                    sparkline.sparkline(psramSpark, psramHistory);
+                }
+
+                if (psramPct >= 90) {
+                    psramEl.classList.add('text-warning');
+                    if (!warningThrottles.psram) {
+                        showToast("PSRAM is critically full (>90%)!", "error");
+                        warningThrottles.psram = true;
+                    }
+                } else {
+                    psramEl.classList.remove('text-warning');
+                    warningThrottles.psram = false;
+                }
+            } else {
+                document.getElementById('row-psram').style.display = 'none';
             }
 
             const fsPct = (sys.fs_used / sys.fs_total) * 100;

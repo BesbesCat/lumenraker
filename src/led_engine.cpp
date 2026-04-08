@@ -20,6 +20,7 @@ public:
     virtual void Show() = 0;
     virtual bool CanShow() = 0;
     virtual void SetPixelColor(uint16_t indexPixel, RgbColor color) = 0;
+    virtual void SyncFromBuffer(CRGB* buffer, uint16_t count, uint16_t startGlobalIdx, bool isFading, CRGB* snapshot, uint8_t fadeRatio, uint16_t scaleR, uint16_t scaleG, uint16_t scaleB, const uint8_t* gamma) = 0;
 };
 
 template<typename T_METHOD>
@@ -31,6 +32,24 @@ public:
     void Show() override { strip.Show(); }
     bool CanShow() override { return strip.CanShow(); }
     void SetPixelColor(uint16_t indexPixel, RgbColor color) override { strip.SetPixelColor(indexPixel, color); }
+
+    void SyncFromBuffer(CRGB* buffer, uint16_t count, uint16_t startGlobalIdx, bool isFading, CRGB* snapshot, uint8_t fadeRatio, uint16_t scaleR, uint16_t scaleG, uint16_t scaleB, const uint8_t* gamma) override {
+        for (int j = 0; j < count; j++) {
+            CRGB liveColor = buffer[j];
+            if (isFading && snapshot) {
+                CRGB snapColor = snapshot[startGlobalIdx + j];
+                uint8_t invRatio = 255 - fadeRatio;
+                liveColor.r = (snapColor.r * invRatio + liveColor.r * fadeRatio) >> 8;
+                liveColor.g = (snapColor.g * invRatio + liveColor.g * fadeRatio) >> 8;
+                liveColor.b = (snapColor.b * invRatio + liveColor.b * fadeRatio) >> 8;
+            }
+            uint8_t linR = (liveColor.r * scaleR) >> 8;
+            uint8_t linG = (liveColor.g * scaleG) >> 8;
+            uint8_t linB = (liveColor.b * scaleB) >> 8;
+            
+            strip.SetPixelColor(j, RgbColor(gamma[linR], gamma[linG], gamma[linB]));
+        }
+    }
 };
 
 StripWrapper* hwStrips[MAX_STRIPS] = {nullptr};
@@ -67,7 +86,7 @@ uint8_t global_ctB = 255;
 
 E131Receiver streamReceiver;
 
-const uint8_t PROGMEM gamma8[] = {
+const uint8_t DRAM_ATTR gamma8[] = {
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  1,  1,
     1,  1,  1,  1,  1,  1,  1,  1,  1,  2,  2,  2,  2,  2,  2,  2,
@@ -195,16 +214,16 @@ void ledsInit() {
 
 #elif defined(CONFIG_IDF_TARGET_ESP32)
         switch (i) {
-            case 0: hwStrips[i] = new StripImpl<NeoEsp32Rmt0800KbpsMethod>(c, p); break;
-            case 1: hwStrips[i] = new StripImpl<NeoEsp32Rmt1800KbpsMethod>(c, p); break;
-            case 2: hwStrips[i] = new StripImpl<NeoEsp32Rmt2800KbpsMethod>(c, p); break;
-            case 3: hwStrips[i] = new StripImpl<NeoEsp32Rmt3800KbpsMethod>(c, p); break;
-            case 4: hwStrips[i] = new StripImpl<NeoEsp32Rmt4800KbpsMethod>(c, p); break;
-            case 5: hwStrips[i] = new StripImpl<NeoEsp32Rmt5800KbpsMethod>(c, p); break;
-            case 6: hwStrips[i] = new StripImpl<NeoEsp32Rmt6800KbpsMethod>(c, p); break;
-            case 7: hwStrips[i] = new StripImpl<NeoEsp32Rmt7800KbpsMethod>(c, p); break;
-            case 8: hwStrips[i] = new StripImpl<NeoEsp32I2s0800KbpsMethod>(c, p); break;
-            case 9: hwStrips[i] = new StripImpl<NeoEsp32I2s1800KbpsMethod>(c, p); break;
+            case 0: hwStrips[i] = new StripImpl<NeoEsp32I2s0800KbpsMethod>(c, p); break;
+            case 1: hwStrips[i] = new StripImpl<NeoEsp32I2s1800KbpsMethod>(c, p); break;
+            case 2: hwStrips[i] = new StripImpl<NeoEsp32Rmt0800KbpsMethod>(c, p); break;
+            case 3: hwStrips[i] = new StripImpl<NeoEsp32Rmt1800KbpsMethod>(c, p); break;
+            case 4: hwStrips[i] = new StripImpl<NeoEsp32Rmt2800KbpsMethod>(c, p); break;
+            case 5: hwStrips[i] = new StripImpl<NeoEsp32Rmt3800KbpsMethod>(c, p); break;
+            case 6: hwStrips[i] = new StripImpl<NeoEsp32Rmt4800KbpsMethod>(c, p); break;
+            case 7: hwStrips[i] = new StripImpl<NeoEsp32Rmt5800KbpsMethod>(c, p); break;
+            case 8: hwStrips[i] = new StripImpl<NeoEsp32Rmt6800KbpsMethod>(c, p); break;
+            case 9: hwStrips[i] = new StripImpl<NeoEsp32Rmt7800KbpsMethod>(c, p); break;
         }
 #else
         #error "Unsupported ESP32 architecture! Please add bindings to ledsInit()."
@@ -392,13 +411,16 @@ void ledTask(void* pv) {
         if (showNeeded) {
             for (int i = 0; i < config.stripCount; i++) {
                 if (hwStrips[i]) {
-                    while (!hwStrips[i]->CanShow()) { taskYIELD(); }
+                    while (!hwStrips[i]->CanShow()) { delayMicroseconds(50); }
                 }
             }
 
-            uint16_t masterBrightness = config.brightness + 1;
             uint16_t globalIdx = 0;
-
+            uint16_t masterBrightness = config.brightness + 1;
+            uint16_t scaleR = (masterBrightness * global_ctR) >> 8;
+            uint16_t scaleG = (masterBrightness * global_ctG) >> 8;
+            uint16_t scaleB = (masterBrightness * global_ctB) >> 8;
+            
             for (int i = 0; i < config.stripCount; i++) {
                 if (hwStrips[i]) {
                     for (int j = 0; j < config.strips[i].count; j++) {
@@ -412,14 +434,14 @@ void ledTask(void* pv) {
                             liveColor.b = (snapColor.b * invRatio + liveColor.b * fadeRatio) >> 8;
                         }
 
-                        uint8_t linR = (liveColor.r * masterBrightness * global_ctR) >> 16;
-                        uint8_t linG = (liveColor.g * masterBrightness * global_ctG) >> 16;
-                        uint8_t linB = (liveColor.b * masterBrightness * global_ctB) >> 16;
+                        uint8_t linR = (liveColor.r * scaleR) >> 8;
+                        uint8_t linG = (liveColor.g * scaleG) >> 8;
+                        uint8_t linB = (liveColor.b * scaleB) >> 8;
                         
                         RgbColor hwColor(
-                            pgm_read_byte(&gamma8[linR]),
-                            pgm_read_byte(&gamma8[linG]),
-                            pgm_read_byte(&gamma8[linB])
+                            gamma8[linR],
+                            gamma8[linG],
+                            gamma8[linB]
                         );
 
                         hwStrips[i]->SetPixelColor(j, hwColor);
