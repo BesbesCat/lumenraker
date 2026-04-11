@@ -720,8 +720,14 @@ async function updateSysStats() {
         document.getElementById('stat-rssi').innerText = `${sys.wifi_rssi} dBm`;
         document.getElementById('stat-uptime').innerText = `${Math.floor(sys.uptime / 60)}m ${sys.uptime % 60}s`;
         if (sys.board) {
-            document.getElementById('stat-board').innerText = sys.board;
-            hwBoard = sys.board.toLowerCase().replace(/-/g, ""); // Converts "ESP32-S3" to "esp32s3"
+            let rawBoard = sys.board.toLowerCase();
+            if (rawBoard.includes("esp32-s3") || rawBoard.includes("esp32s3")) {
+                hwBoard = "esp32s3";
+            } else if (rawBoard.includes("esp32")) {
+                hwBoard = "esp32"; 
+            } else {
+                hwBoard = rawBoard.replace(/-/g, ""); 
+            }
         }
         if (sys.flash_size) {
             document.getElementById('stat-flash').innerText = `${sys.flash_size} MB`;

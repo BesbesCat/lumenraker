@@ -1,6 +1,6 @@
 {
   "name": "Lumenraker (16MB)",
-  "version": "0.0.8-alpha7_HF2",
+  "version": "0.0.8-alpha7_HF3",
   "home_assistant_domain": "lumenraker",
   "builds": [
     {
