@@ -309,7 +309,14 @@ void handleSurgicalWrite(AsyncWebServerRequest *request, uint8_t *data, size_t l
         Serial.printf("[Surgical] Target Path: %s\n", path.c_str());
         
         if (path.startsWith("/fx/") && !LittleFS.exists("/fx")) LittleFS.mkdir("/fx");
-        
+        if (path.startsWith("/cfg/") && !LittleFS.exists("/cfg")) LittleFS.mkdir("/cfg");
+
+        if (path.startsWith("/www/")) {
+            if (!LittleFS.exists("/www")) LittleFS.mkdir("/www");
+            if (path.startsWith("/www/js/") && !LittleFS.exists("/www/js")) LittleFS.mkdir("/www/js");
+            if (path.startsWith("/www/css/") && !LittleFS.exists("/www/css")) LittleFS.mkdir("/www/css");
+        }
+
         surgicalFile = LittleFS.open(path, "w");
         if (!surgicalFile) Serial.println("[Surgical] ERROR: LittleFS failed to open file for writing!");
     }
