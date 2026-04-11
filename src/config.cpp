@@ -15,6 +15,7 @@ void defaultConfig() {
   }
   memset(&config, 0, sizeof(Config));
   
+  strcpy(config.hostname, "lumenraker");
   strcpy(config.moonrakerHost, "192.168.1.100");
   config.moonrakerPort = 7125;
   config.brightness = 128;
@@ -75,6 +76,10 @@ void loadConfig() {
     return;
   }
 
+  if (prefs.getBytes("hostname", config.hostname, 32) == 0) {
+      strcpy(config.hostname, "lumenraker");
+  }
+
   prefs.getBytes("wifiSSID", config.wifiSSID, 32);
   prefs.getBytes("wifiPASS", config.wifiPASS, 64);
   prefs.getBytes("mHost", config.moonrakerHost, 64);
@@ -124,6 +129,7 @@ void loadConfig() {
 void saveConfig() {
   prefs.begin("klpro", false);
   prefs.putUInt("cfgVer", 102);
+  prefs.putBytes("hostname", config.hostname, 32);
   prefs.putBytes("wifiSSID", config.wifiSSID, 32);
   prefs.putBytes("wifiPASS", config.wifiPASS, 64);
   prefs.putBytes("mHost", config.moonrakerHost, 64);

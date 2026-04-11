@@ -14,6 +14,8 @@
 // ===================================
 
 #define MAX_PALETTE_COLORS 16
+#define PREC_MUL 16777216.0f // 24-bit Precision Multiplier
+#define PREC_MAX 0xFFFFFF    // 24-bit Bitmask
 
 extern char lastMoonrakerJson[1024];
 extern volatile EventType currentEvent;
@@ -166,8 +168,8 @@ int IRAM_ATTR l_fill_palette(lua_State* L) {
     float size_step = luaL_checknumber(L, 3);
     uint8_t br = luaL_checkinteger(L, 4) & 255;
 
-    int start_pixel = luaL_optinteger(L, 5, 0);
-    int end_pixel = luaL_optinteger(L, 6, currentCount - 1);
+    float start_pixel_f = luaL_optnumber(L, 5, 0.0f);
+    float end_pixel_f = luaL_optnumber(L, 6, (float)(currentCount)); 
     uint8_t smooth_val = luaL_optinteger(L, 7, 0); 
     uint8_t dither_amount = luaL_optinteger(L, 8, 0); 
     
@@ -175,11 +177,27 @@ int IRAM_ATTR l_fill_palette(lua_State* L) {
     if (lua_gettop(L) >= 9 && !lua_isnil(L, 9)) {
         is_cyclic = lua_toboolean(L, 9);
     }
+    
+    float feather = luaL_optnumber(L, 10, 0.0f);
+    int fade_speed = luaL_optinteger(L, 11, 0);
 
-    if (start_pixel < 0) start_pixel = 0;
-    if (start_pixel >= currentCount) start_pixel = currentCount - 1;
-    if (end_pixel < 0) end_pixel = 0;
-    if (end_pixel >= currentCount) end_pixel = currentCount - 1;
+    if (start_pixel_f < 0.0f) start_pixel_f = 0.0f;
+    if (start_pixel_f > currentCount) start_pixel_f = (float)(currentCount);
+    if (end_pixel_f < 0.0f) end_pixel_f = 0.0f;
+    if (end_pixel_f > currentCount) end_pixel_f = (float)(currentCount);
+
+    int start_pixel = (int)start_pixel_f;
+    int end_pixel = (int)end_pixel_f;
+
+    uint8_t start_fade = 255;
+    uint8_t end_fade = 255;
+    if (start_pixel <= end_pixel) {
+        start_fade = (uint8_t)((1.0f - (start_pixel_f - start_pixel)) * 255.0f);
+        end_fade = (uint8_t)((end_pixel_f - end_pixel) * 255.0f);
+    } else {
+        start_fade = (uint8_t)((start_pixel_f - start_pixel) * 255.0f);
+        end_fade = (uint8_t)((1.0f - (end_pixel_f - end_pixel)) * 255.0f);
+    }
 
     uint8_t r[MAX_PALETTE_COLORS] = {0};
     uint8_t g[MAX_PALETTE_COLORS] = {0};
@@ -209,92 +227,175 @@ int IRAM_ATTR l_fill_palette(lua_State* L) {
     }
     if (total_weight <= 0.0f) total_weight = 1.0f;
 
-    uint16_t start_pos[MAX_PALETTE_COLORS];
+    uint32_t start_pos[MAX_PALETTE_COLORS];
     float current_acc = 0;
     for (int i = 0; i < num_colors; i++) {
         if (!is_cyclic && i == num_colors - 1) {
-            start_pos[i] = 65535;
+            start_pos[i] = PREC_MAX;
         } else {
-            start_pos[i] = (uint16_t)((current_acc / total_weight) * 65535.0f);
+            start_pos[i] = (uint32_t)((current_acc / total_weight) * PREC_MUL);
             current_acc += weights[i];
         }
     }
 
-    float safe_offset = fmod(offset, 1.0f);
-    if (safe_offset < 0) safe_offset += 1.0f;
-    
-    uint32_t pos = (uint32_t)(safe_offset * 65536.0f);
-    uint32_t size_fp = (uint32_t)(size_step * 65536.0f);
+    int next_idx_lut[MAX_PALETTE_COLORS];
+    uint32_t seg_start_lut[MAX_PALETTE_COLORS];
+    uint32_t seg_len_lut[MAX_PALETTE_COLORS];
+
+    for (int i = 0; i < num_colors; i++) {
+        int next_idx = (is_cyclic) ? ((i + 1) % num_colors) : ((i + 1 < num_colors) ? i + 1 : i);
+        next_idx_lut[i] = next_idx;
+        
+        uint32_t seg_start = start_pos[i];
+        uint32_t seg_end = (is_cyclic && next_idx == 0) ? 0 : start_pos[next_idx]; 
+        
+        uint32_t seg_len = (is_cyclic && next_idx == 0) ? ((PREC_MAX + 1) - seg_start) : ((seg_end >= seg_start) ? (seg_end - seg_start) : 1);
+        if (seg_len == 0) seg_len = 1; 
+
+        seg_start_lut[i] = seg_start;
+        seg_len_lut[i] = seg_len;
+    }
+
+    float safe_offset = offset - (int32_t)offset;
+    if (safe_offset < 0.0f) safe_offset += 1.0f;
 
     int step = (start_pixel <= end_pixel) ? 1 : -1;
     int loop_count = abs(end_pixel - start_pixel) + 1;
     int current_p = start_pixel;
-    uint32_t t_ms = millis(); 
+    
+    uint32_t fast_t_ms = millis() >> 4; 
+
+    float dist = (step > 0) ? ((float)start_pixel - start_pixel_f) : (start_pixel_f - (float)start_pixel);
+    float dist_from_end = (step > 0) ? (end_pixel_f - (float)start_pixel) : ((float)start_pixel - end_pixel_f);
+    float current_pos_f = safe_offset + (dist * size_step);
+    
+    bool do_dither = dither_amount > 0;
+    bool do_smooth = smooth_val > 0;
+    bool do_feather = feather > 0.001f;
+    bool do_fade = fade_speed > 0;
+    
+    float inv_feather = do_feather ? (1.0f / feather) : 0.0f;
 
     for (int i = 0; i < loop_count; i++) {
         int mapped_i = currentReversed ? (currentCount - 1) - current_p : current_p;
-        uint16_t global_i = currentZoneStart + mapped_i;
         
-        uint16_t current_pos;
-        if (is_cyclic) {
-            current_pos = pos % 65536;
-        } else {
-            current_pos = (pos >= 65535) ? 65535 : (uint16_t)pos;
-        }
-
-        if (global_i < totalUniverseLeds && universeMap[global_i]) {
-            int idx = 0;
-            for (int j = 0; j < num_colors; j++) {
-                if (current_pos >= start_pos[j]) idx = j;
-            }
+        if (mapped_i >= 0 && mapped_i < currentCount) {
+            uint16_t global_i = currentZoneStart + mapped_i;
             
-            int next_idx;
-            if (is_cyclic) {
-                next_idx = (idx + 1) % num_colors;
-            } else {
-                next_idx = (idx + 1 < num_colors) ? idx + 1 : idx;
+            if (global_i < totalUniverseLeds && universeMap[global_i]) {
+                CRGB* targetPixel = universeMap[global_i]; 
+
+                uint32_t current_pos;
+                if (is_cyclic) {
+                    float wrapped = current_pos_f - (int32_t)current_pos_f;
+                    if (wrapped < 0.0f) wrapped += 1.0f;
+                    current_pos = (uint32_t)(wrapped * PREC_MUL);
+                } else {
+                    if (current_pos_f <= 0.0f) current_pos = 0;
+                    else if (current_pos_f >= 1.0f) current_pos = PREC_MAX;
+                    else current_pos = (uint32_t)(current_pos_f * PREC_MUL);
+                }
+
+                int idx = 0;
+                for (int j = 1; j < num_colors; j++) {
+                    if (current_pos >= start_pos[j]) idx = j;
+                    else break;
+                }
+                
+                int next_idx = next_idx_lut[idx];
+                uint32_t seg_start = seg_start_lut[idx];
+                uint32_t seg_len = seg_len_lut[idx];
+
+                uint32_t offset_in_seg = (current_pos >= seg_start) ? (current_pos - seg_start) : 0;
+                uint16_t fract = ((offset_in_seg * 255) + (seg_len >> 1)) / seg_len; 
+                if (fract > 255) fract = 255;
+
+                if (do_dither) {
+                    uint8_t noise = (global_i * 73 + fast_t_ms) & 255; 
+                    int16_t dither_val = ((noise * dither_amount) >> 8) - (dither_amount >> 1);
+                    int new_fract = fract + dither_val;
+                    fract = (new_fract < 0) ? 0 : ((new_fract > 255) ? 255 : new_fract);
+                }
+
+                if (do_smooth) {
+                    uint8_t eased = ease8InOutQuad((uint8_t)fract);
+                    fract = fract + (((int32_t)eased - fract) * smooth_val) / 255;
+                }
+
+                uint8_t r_blend = blend8(r[idx], r[next_idx], fract);
+                uint8_t g_blend = blend8(g[idx], g[next_idx], fract);
+                uint8_t b_blend = blend8(b[idx], b[next_idx], fract);
+
+                uint16_t shape_alpha = 255; 
+
+                if (do_feather) {
+                    if (dist >= feather && dist_from_end >= feather) {
+                        shape_alpha = 255;
+                    } else {
+                        float start_mult = (dist + 0.5f) * inv_feather; 
+                        float end_mult = (dist_from_end + 0.5f) * inv_feather;
+                        
+                        // Ternary clamps compile to efficient branchless MIN/MAX instructions
+                        start_mult = (start_mult < 0.0f) ? 0.0f : ((start_mult > 1.0f) ? 1.0f : start_mult);
+                        end_mult = (end_mult < 0.0f) ? 0.0f : ((end_mult > 1.0f) ? 1.0f : end_mult);
+                        
+                        start_mult = start_mult * start_mult * (3.0f - 2.0f * start_mult);
+                        end_mult = end_mult * end_mult * (3.0f - 2.0f * end_mult);
+                        
+                        shape_alpha = (uint16_t)(255.0f * start_mult * end_mult);
+                    }
+                } else {
+                    if (loop_count == 1) {
+                        shape_alpha = (start_fade * end_fade) >> 8;
+                    } else {
+                        if (i == 0) shape_alpha = start_fade;
+                        else if (i == loop_count - 1) shape_alpha = end_fade;
+                    }
+                }
+
+                uint8_t fg_r = (r_blend * br) >> 8;
+                uint8_t fg_g = (g_blend * br) >> 8;
+                uint8_t fg_b = (b_blend * br) >> 8;
+
+                if (do_fade) {
+                    CRGB current = *targetPixel;
+                    
+                    int active_speed = (fade_speed * shape_alpha) >> 8;
+                    if (active_speed == 0 && shape_alpha > 0) active_speed = 1;
+
+                    if (shape_alpha > 0) {
+                        if (current.r < fg_r) { int n = current.r + active_speed; current.r = (n > fg_r) ? fg_r : n; }
+                        else if (current.r > fg_r) { int n = current.r - active_speed; current.r = (n < fg_r) ? fg_r : n; }
+
+                        if (current.g < fg_g) { int n = current.g + active_speed; current.g = (n > fg_g) ? fg_g : n; }
+                        else if (current.g > fg_g) { int n = current.g - active_speed; current.g = (n < fg_g) ? fg_g : n; }
+
+                        if (current.b < fg_b) { int n = current.b + active_speed; current.b = (n > fg_b) ? fg_b : n; }
+                        else if (current.b > fg_b) { int n = current.b - active_speed; current.b = (n < fg_b) ? fg_b : n; }
+                    }
+                    *targetPixel = current;
+                } else {
+                    if (shape_alpha < 255) {
+                        uint8_t inv_alpha = 255 - shape_alpha;
+                        CRGB bg = *targetPixel;
+                        *targetPixel = CRGB(
+                            ((fg_r * shape_alpha) + (bg.r * inv_alpha)) >> 8,
+                            ((fg_g * shape_alpha) + (bg.g * inv_alpha)) >> 8,
+                            ((fg_b * shape_alpha) + (bg.b * inv_alpha)) >> 8
+                        );
+                    } else {
+                        *targetPixel = CRGB(fg_r, fg_g, fg_b);
+                    }
+                }
             }
-            
-            uint16_t seg_start = start_pos[idx];
-            uint16_t seg_end = (is_cyclic && next_idx == 0) ? 0 : start_pos[next_idx]; 
-            
-            uint32_t seg_len;
-            if (is_cyclic && next_idx == 0) {
-                seg_len = 65536 - seg_start;
-            } else {
-                seg_len = (seg_end >= seg_start) ? (seg_end - seg_start) : 1;
-            }
-            if (seg_len == 0) seg_len = 1; 
-
-            uint32_t offset_in_seg = (current_pos >= seg_start) ? (current_pos - seg_start) : 0;
-            uint16_t fract = (offset_in_seg << 8) / seg_len; 
-            if (fract > 255) fract = 255;
-
-            if (dither_amount > 0) {
-                uint8_t noise = (global_i * 73 + (t_ms / 16)) & 255; 
-                int16_t dither_val = ((noise * dither_amount) >> 8) - (dither_amount >> 1);
-                int new_fract = fract + dither_val;
-                fract = (new_fract < 0) ? 0 : ((new_fract > 255) ? 255 : new_fract);
-            }
-
-            if (smooth_val > 0) {
-                uint8_t eased = ease8InOutQuad((uint8_t)fract);
-                fract = fract + (((int32_t)eased - fract) * smooth_val) / 255;
-            }
-
-            uint8_t r_blend = blend8(r[idx], r[next_idx], fract);
-            uint8_t g_blend = blend8(g[idx], g[next_idx], fract);
-            uint8_t b_blend = blend8(b[idx], b[next_idx], fract);
-
-            r_blend = (r_blend * br) >> 8;
-            g_blend = (g_blend * br) >> 8;
-            b_blend = (b_blend * br) >> 8;
-
-            *(universeMap[global_i]) = CRGB(r_blend, g_blend, b_blend);
         }
         
-        pos += size_fp; 
         current_p += step; 
+        current_pos_f += size_step;
+        if (do_feather) {
+            dist += 1.0f;
+            dist_from_end -= 1.0f;
+        }
     }
     
     ledsDirty = true;

@@ -75,6 +75,7 @@ void updateFsCache() {
 void handleGetConfig(AsyncWebServerRequest *request) {
     if (!isAuthenticated(request)) return request->send(401);
     JsonDocument doc;
+    doc["host"] = config.hostname;
     doc["ssid"] = config.wifiSSID;
     doc["pass"] = config.wifiPASS; 
     doc["mHost"] = config.moonrakerHost;
@@ -145,6 +146,7 @@ void handleSaveConfig(AsyncWebServerRequest *request, uint8_t *data, size_t len,
             bool needReboot = false;
             
             ConfigCheckFunc rebootTriggers[] = {
+                [](JsonDocument& d) { return d.containsKey("host") && String(config.hostname) != d["host"].as<String>(); },
                 [](JsonDocument& d) { return d.containsKey("ssid") && String(config.wifiSSID) != d["ssid"].as<String>(); },
                 [](JsonDocument& d) { return d.containsKey("pass") && String(config.wifiPASS) != d["pass"].as<String>(); },
                 
@@ -176,7 +178,8 @@ void handleSaveConfig(AsyncWebServerRequest *request, uint8_t *data, size_t len,
             if(doc["colorTempK"] != config.colorTempK) {
                 wbReload = true;
             }
-            
+
+            strlcpy(config.hostname, doc["host"] | "lumenraker", sizeof(config.hostname));
             strlcpy(config.wifiSSID, doc["ssid"] | "", sizeof(config.wifiSSID));
             strlcpy(config.wifiPASS, doc["pass"] | "", sizeof(config.wifiPASS));
             strlcpy(config.moonrakerHost, doc["mHost"] | "192.168.1.100", sizeof(config.moonrakerHost));
@@ -382,7 +385,8 @@ void handleGetSysInfo(AsyncWebServerRequest *request) {
     doc["chip_rev"] = ESP.getChipRevision();
     doc["sdk_ver"] = ESP.getSdkVersion();
     doc["wifi_rssi"] = WiFi.RSSI();
-
+    doc["board"] = ESP.getChipModel();
+    doc["flash_size"] = ESP.getFlashChipSize() / (1024 * 1024);
     serializeJson(doc, *response);
     
     request->send(response);
@@ -444,6 +448,37 @@ void webuiInit() {
         AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
         response->addHeader("Set-Cookie", "LumenSession=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT");
         request->send(response);
+    });
+
+    server.on("/api/wifi/scan", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (!isAuthenticated(request)) return request->send(401);
+        
+        int16_t n = WiFi.scanComplete();
+        
+        if (n == WIFI_SCAN_FAILED) {
+            WiFi.scanNetworks(true, true); 
+            return request->send(202, "application/json", "{\"status\":\"scanning\"}");
+        } 
+        else if (n == WIFI_SCAN_RUNNING) {
+            return request->send(202, "application/json", "{\"status\":\"scanning\"}");
+        } 
+        else {
+            JsonDocument doc;
+            JsonArray arr = doc.to<JsonArray>();
+            
+            for (int i = 0; i < n; ++i) {
+                JsonObject net = arr.add<JsonObject>();
+                net["ssid"] = WiFi.SSID(i);
+                net["rssi"] = WiFi.RSSI(i);
+                net["enc"] = WiFi.encryptionType(i);
+            }
+            
+            String response;
+            serializeJson(doc, response);
+            request->send(200, "application/json", response);
+            
+            WiFi.scanDelete(); 
+        }
     });
 
     server.on("/api/sysinfo", HTTP_GET, handleGetSysInfo);

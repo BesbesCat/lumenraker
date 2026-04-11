@@ -457,7 +457,7 @@ void ledTask(void* pv) {
 
         unsigned long currentMillis = millis();
         if (currentMillis - lastGCTime >= 60000) {
-            if (L_VM) { lua_gc(L_VM, LUA_GCCOLLECT, 0); } 
+            //if (L_VM) { lua_gc(L_VM, LUA_GCCOLLECT, 0); } 
             lastGCTime = currentMillis;
         }
         if (currentMillis - lastFpsTime >= 1000) {

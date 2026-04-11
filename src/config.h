@@ -3,7 +3,7 @@
 
 #define MAX_STRIPS 10
 
-const String LUMEN_VERSION = "0.0.8-alpha";
+const String LUMEN_VERSION = "0.0.8-alpha7";
 
 enum EventType { EVT_IDLE, EVT_PRINTING, EVT_HEATING, EVT_HEATING_EXTRUDER, EVT_HOMING, EVT_ERROR, EVT_SHUTDOWN, EVT_STREAMING, EVT_COUNT };
 extern const char* const EventNames[];
@@ -33,6 +33,7 @@ struct Zone {
 };
 
 struct Config {
+  char hostname[32];
   char wifiSSID[32]; 
   char wifiPASS[64];
   char moonrakerHost[64];

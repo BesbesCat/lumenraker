@@ -2,6 +2,7 @@
 #include <WebSocketsClient.h>
 #include <ArduinoJson.h>
 #include <LittleFS.h>
+#include <ESPmDNS.h>
 #include "config.h"
 #include "E131Receiver.h"
 
@@ -152,6 +153,11 @@ void netTask(void* pv) {
         if (WiFi.status() == WL_CONNECTED) {
             Serial.println("\nWiFi Connected!");
             Serial.print("IP: "); Serial.println(WiFi.localIP());
+            if (strlen(config.hostname) > 0) {
+                if (MDNS.begin(config.hostname)) {
+                    Serial.printf("mDNS responder started: http://%s.local\n", config.hostname);
+                }
+            }
             wifiConnected = true;
         }
     }
