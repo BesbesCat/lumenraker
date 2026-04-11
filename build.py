@@ -5,7 +5,7 @@ import tarfile
 import struct
 import re
 
-VERSION = "0.0.8-alpha7_HF3"
+VERSION = "0.0.8-alpha7_HF4"
 PIO_BUILD_DIR = os.path.join(".pio", "build")
 DATA_DIR = "data"
 DOCS_DIR = "docs"

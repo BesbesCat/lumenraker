@@ -728,6 +728,7 @@ async function updateSysStats() {
             } else {
                 hwBoard = rawBoard.replace(/-/g, ""); 
             }
+            document.getElementById('stat-board').innerText = sys.board;
         }
         if (sys.flash_size) {
             document.getElementById('stat-flash').innerText = `${sys.flash_size} MB`;

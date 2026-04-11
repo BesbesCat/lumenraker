@@ -3,7 +3,7 @@
 
 #define MAX_STRIPS 10
 
-const String LUMEN_VERSION = "0.0.8-alpha7_HF3";
+const String LUMEN_VERSION = "0.0.8-alpha7_HF4";
 
 enum EventType { EVT_IDLE, EVT_PRINTING, EVT_HEATING, EVT_HEATING_EXTRUDER, EVT_HOMING, EVT_ERROR, EVT_SHUTDOWN, EVT_STREAMING, EVT_COUNT };
 extern const char* const EventNames[];
