@@ -60,7 +60,8 @@ async function performOTAUpgrade() {
         const arrayBuffer = await response.arrayBuffer();
         log.innerText = "Download complete. Extracting & Installing...";
         
-        await processInstaller(arrayBuffer); 
+        // Pass the specific element ID for OTA upgrades
+        await processInstaller(arrayBuffer, 'install-progress'); 
         
     } catch (e) {
         log.innerText = "Error: " + e.message;
@@ -81,11 +82,14 @@ async function handleLocalUpload() {
     const file = fileInput.files[0];
     status.innerText = "Reading local file...";
     const arrayBuffer = await file.arrayBuffer();
-    processInstaller(arrayBuffer);
+    
+    // Pass the specific element ID for local uploads
+    await processInstaller(arrayBuffer, 'install-local-progress');
 }
 
-async function processInstaller(arrayBuffer) {
-    const status = document.getElementById('install-local-progress') || document.getElementById('install-progress');
+// Added the optional statusElementId parameter
+async function processInstaller(arrayBuffer, statusElementId = 'install-progress') {
+    const status = document.getElementById(statusElementId);
 
     try {
         status.innerText = "Unpacking bundle...";
