@@ -68,8 +68,8 @@ void handleStatus(JsonObject s) {
     } 
     else {
         bool isHomingEvent = (millis() - lastMoveTime < 10000);
-        bool isBedHeating = (bedTarget > 0 && bedTemp < bedTarget - 1.0f);
-        bool isExtHeating = (extTarget > 0 && extTemp < extTarget - 1.0f);
+        bool isBedHeating = (bedTarget > 0);
+        bool isExtHeating = (extTarget > 0);
 
         if (isHomingEvent) {
             currentEvent = EVT_HOMING;
